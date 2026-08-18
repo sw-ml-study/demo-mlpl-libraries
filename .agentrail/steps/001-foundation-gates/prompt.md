@@ -1,0 +1,1 @@
+Create the executable repository foundation described in docs/plan.md: narrow .gitignore, root justfile, tool selectors, mlplunit.conf, scripts/check-mlpl-style, catalog schema, and a just check gate. Add structural tests for the checks themselves. Keep sibling repositories read-only.

@@ -1,0 +1,1 @@
+Implement a deterministic source vendor installer and an external-style fixture consumer. Prove pinned revision/hash recording, clean install, tamper detection, missing dependency diagnostics, explicit upgrade behavior, and no runtime reads from the producer tree.

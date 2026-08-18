@@ -1,0 +1,9 @@
+number = 3
+slug = "result-library"
+status = "pending"
+description = "Using native mlplunit TDD, implement the first small pure MLPL result/error-p..."
+role = "production"
+context_files = []
+created_at = "2026-08-18T11:35:39"
+task_type = "mlpl-library"
+commits = []

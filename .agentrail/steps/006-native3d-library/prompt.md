@@ -1,0 +1,1 @@
+Implement the generic native3d MLPL modules in this repository test-first under the u:n3d_* prefix, with capability contracts and headless mlplunit coverage. Add an integration fixture matching demo-extensions layout without modifying the sibling repository.

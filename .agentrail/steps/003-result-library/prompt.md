@@ -1,0 +1,1 @@
+Using native mlplunit TDD, implement the first small pure MLPL result/error-pipeline library, its API documentation, catalog entry, examples, negative tests, and pre-commit evidence.

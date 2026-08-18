@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+[ -L "$repo_root/CLAUDE.md" ]
+[ "$(readlink "$repo_root/CLAUDE.md")" = AGENTS.md ]
+grep -Fq 'scripts/check-mlpl-style' "$repo_root/AGENTS.md"
+grep -Fq 'Push the committed branch' "$repo_root/AGENTS.md"
+grep -Fq 'agentrail status' "$repo_root/AGENTS.md"
+grep -Fq './scripts/check' "$repo_root/justfile"
+if MLPL=relative "$repo_root/scripts/select-mlpl" >/dev/null 2>&1; then
+    echo "relative MLPL override unexpectedly accepted" >&2; exit 1
+fi
+if MLPLUNIT=relative "$repo_root/scripts/select-mlplunit" >/dev/null 2>&1; then
+    echo "relative MLPLUNIT override unexpectedly accepted" >&2; exit 1
+fi
+echo "PASS foundation contracts"

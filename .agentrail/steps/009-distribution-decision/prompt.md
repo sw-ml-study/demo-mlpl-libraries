@@ -1,0 +1,1 @@
+Evaluate the proven vendoring workflow and write docs/upstream-contract.md for only irreducible gaps. Compare git/archive/registry distribution, namespace and search-path needs, integrity, transitive dependencies, and interpreter/compiler/REPL parity using producer and consumer evidence.

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ -n "${MLPLUNIT:-}" ]; then
+    case "$MLPLUNIT" in /*) candidate=$MLPLUNIT ;; *) echo "MLPLUNIT must be an absolute path" >&2; exit 2 ;; esac
+elif command -v mlplunit >/dev/null 2>&1; then
+    candidate=$(command -v mlplunit)
+elif [ -x "$repo_root/../sw-mlpl/target/debug/mlplunit" ]; then
+    candidate=$repo_root/../sw-mlpl/target/debug/mlplunit
+else
+    echo "mlplunit not found; set MLPLUNIT or build ../sw-mlpl" >&2; exit 1
+fi
+[ -x "$candidate" ] || { echo "mlplunit is not executable: $candidate" >&2; exit 1; }
+printf '%s\n' "$candidate"

@@ -1,0 +1,9 @@
+number = 7
+slug = "consumer-handoff"
+status = "pending"
+description = "Prepare and validate the separately authorized demo-extensions adoption hando..."
+role = "validation"
+context_files = []
+created_at = "2026-08-18T11:35:39"
+task_type = "integration"
+commits = []

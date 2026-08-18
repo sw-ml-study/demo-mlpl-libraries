@@ -1,0 +1,1 @@
+Use executable consumer evidence to select and implement the next smallest general-purpose library slice among CLI args, filesystem helpers, data transforms, or MLX/CUDA facades. Require portable and capability-negative tests; do not generalize without a credible consumer.

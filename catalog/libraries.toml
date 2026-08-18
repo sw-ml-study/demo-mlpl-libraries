@@ -1,0 +1,4 @@
+# Entries land only with implementation, tests, documentation, and contracts.
+schema_version = 1
+
+libraries = []

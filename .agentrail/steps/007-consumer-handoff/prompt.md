@@ -1,0 +1,1 @@
+Prepare and validate the separately authorized demo-extensions adoption handoff: pinned installation instructions, consumer lock expectations, test matrix, rollback plan, and exact consumer changes. Do not mutate ../demo-extensions unless the user explicitly authorizes that step.

@@ -1,0 +1,10 @@
+# Local build and test output.
+target/
+tmp/
+reports/
+*.log
+
+# Editor and operating-system state.
+.DS_Store
+*~
+*.swp

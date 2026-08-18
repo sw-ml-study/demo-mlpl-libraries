@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh -n "$repo_root"/scripts/* "$repo_root"/tests/test-foundation
+"$repo_root/tests/test-foundation"
+"$repo_root/scripts/check-gitignore"
+"$repo_root/scripts/check-catalog"
+"$repo_root/scripts/check-mlpl-style"
+if find "$repo_root/tests" -type f -name 'test_*.mlpl' -print -quit | grep -q .; then
+    "$repo_root/scripts/run-tests" --format tap >/dev/null
+fi
+git -C "$repo_root" diff --check
+echo "PASS pre-commit"

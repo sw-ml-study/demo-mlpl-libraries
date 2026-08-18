@@ -1,0 +1,1 @@
+Inventory the reusable native3d MLPL surface in ../demo-extensions as read-only evidence. Freeze a migration map separating generic camera, geometry, and Port lifecycle helpers from application semantics and native capabilities; record exact tests and compatibility requirements.

@@ -1,0 +1,1 @@
+Specify and test the MLPL library module, naming-prefix, manifest, semantic-version, dependency, capability, and lock/provenance contracts. Document the decisions and limitations, and update the catalog schema and validation.

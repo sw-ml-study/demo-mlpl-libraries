@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+for path in AGENTS.md CLAUDE.md LICENSE COPYRIGHT justfile mlplunit.conf catalog/libraries.toml lib/example.mlpl tests/test_example.mlpl .agentrail/saga.toml; do
+    git check-ignore -q "$path" && { echo "required project file is ignored: $path" >&2; exit 1; }
+done
+for path in target/debug/example tmp/result.txt reports/check.txt local.log; do
+    git check-ignore -q "$path" || { echo "generated artifact is not ignored: $path" >&2; exit 1; }
+done
+echo "PASS gitignore policy"
