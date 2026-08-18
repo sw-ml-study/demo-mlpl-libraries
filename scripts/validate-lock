@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+file=${1:?usage: validate-lock LOCK}
+[ -f "$file" ] || { echo "lock not found: $file" >&2; exit 1; }
+
+grep -qx 'schema_version = 1' "$file" || { echo "$file: invalid schema_version" >&2; exit 1; }
+grep -Eq '^repository = "[^"[:space:]]+"$' "$file" || { echo "$file: missing repository" >&2; exit 1; }
+grep -Eq '^revision = "[0-9a-f]{40}"$' "$file" || { echo "$file: revision must be 40 lowercase hex characters" >&2; exit 1; }
+grep -q '^\[\[libraries\]\]$' "$file" || { echo "$file: no locked libraries" >&2; exit 1; }
+for field in name version entry manifest_sha256; do
+    grep -Eq "^$field = \"[^\"]+\"$" "$file" || { echo "$file: missing library $field" >&2; exit 1; }
+done
+grep -Eq '^manifest_sha256 = "[0-9a-f]{64}"$' "$file" || { echo "$file: invalid manifest hash" >&2; exit 1; }
+grep -q '^\[\[libraries.files\]\]$' "$file" || { echo "$file: no locked files" >&2; exit 1; }
+grep -Eq '^path = "(lib|docs)/[^".][^"]*"$' "$file" || { echo "$file: invalid locked path" >&2; exit 1; }
+grep -Eq '^sha256 = "[0-9a-f]{64}"$' "$file" || { echo "$file: invalid file hash" >&2; exit 1; }
+! grep -Eq '^path = ".*(^|/)\.\.?(\/|$)' "$file" || { echo "$file: unsafe locked path" >&2; exit 1; }
+echo "PASS consumer lock structure"

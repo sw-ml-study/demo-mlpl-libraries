@@ -1,4 +1,4 @@
-# Entries land only with implementation, tests, documentation, and contracts.
+# Format contract: docs/library-contract.md.
 schema_version = 1
 
 libraries = []

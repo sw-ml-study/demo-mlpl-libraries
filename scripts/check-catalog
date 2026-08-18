@@ -1,12 +1,6 @@
 #!/bin/sh
 set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-catalog=$repo_root/catalog/libraries.toml
-grep -qx 'schema_version = 1' "$catalog"
-grep -Eq '^(libraries = \[\]|\[\[libraries\]\])' "$catalog"
-if grep -q '^\[\[libraries\]\]' "$catalog"; then
-    for field in name version entry prefix documentation license capabilities; do
-        grep -Eq "^$field = " "$catalog" || { echo "catalog contract missing field: $field" >&2; exit 1; }
-    done
-fi
-echo "PASS library catalog structure"
+"$repo_root/scripts/validate-catalog" "$repo_root/catalog/libraries.toml"
+"$repo_root/scripts/validate-lock" "$repo_root/tests/fixtures/valid.lock.toml"
+echo "PASS library catalog and lock contracts"

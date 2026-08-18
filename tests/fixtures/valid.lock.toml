@@ -1,0 +1,11 @@
+schema_version = 1
+repository = "https://github.com/sw-ml-study/demo-mlpl-libraries"
+revision = "0123456789abcdef0123456789abcdef01234567"
+[[libraries]]
+name = "result"
+version = "0.1.0"
+entry = "lib/result/result.mlpl"
+manifest_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+[[libraries.files]]
+path = "lib/result/result.mlpl"
+sha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"

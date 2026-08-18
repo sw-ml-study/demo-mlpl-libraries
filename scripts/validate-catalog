@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+file=${1:?usage: validate-catalog CATALOG}
+[ -f "$file" ] || { echo "catalog not found: $file" >&2; exit 1; }
+
+awk '
+function fail(message) { print FILENAME ":" NR ": " message > "/dev/stderr"; bad=1 }
+function value(line) { sub(/^[^=]*=[[:space:]]*/, "", line); gsub(/^"|"$/, "", line); return line }
+function safe_path(path) {
+  return path !~ /^\// && path !~ /(^|\/)\.\.?(\/|$)/ && path !~ /\/\//
+}
+function finish( field) {
+  if (!entry) return
+  split("name version entry prefix documentation license source_files capabilities dependencies", required)
+  for (field in required) if (!seen[required[field]]) fail("library missing field " required[field])
+  if (names[name]++) fail("duplicate library name " name)
+  if (prefixes[prefix]++) fail("duplicate prefix " prefix)
+  if (name !~ /^[a-z][a-z0-9-]*$/) fail("invalid library name " name)
+  if (version !~ /^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$/) fail("invalid semantic version " version)
+  if (!safe_path(entry_path) || entry_path !~ /^lib\// || entry_path !~ /\.mlpl$/) fail("unsafe entry path " entry_path)
+  if (!safe_path(documentation) || documentation !~ /^docs\// || documentation !~ /\.md$/) fail("unsafe documentation path " documentation)
+  if (prefix !~ /^u:[a-z][a-z0-9_]*_$/) fail("invalid owned prefix " prefix)
+  delete seen; entry=0
+}
+/^schema_version[[:space:]]*=/ { if (value($0) != "1") fail("unsupported schema_version"); schema=1; next }
+/^libraries[[:space:]]*=[[:space:]]*\[\][[:space:]]*$/ { empty=1; next }
+/^\[\[libraries\]\]$/ { finish(); entry=1; next }
+entry && /^[a-z_]+[[:space:]]*=/ {
+  key=$1; seen[key]=1; raw=value($0)
+  if (key=="name") name=raw
+  else if (key=="version") version=raw
+  else if (key=="entry") entry_path=raw
+  else if (key=="prefix") prefix=raw
+  else if (key=="documentation") documentation=raw
+  else if (key=="license" && raw !~ /^[A-Za-z0-9.-]+$/) fail("invalid SPDX identifier")
+  else if ((key=="source_files" || key=="capabilities" || key=="dependencies") && raw !~ /^\[.*\]$/) fail(key " must be an array")
+  next
+}
+END { finish(); if (!schema) fail("missing schema_version"); if (!empty && !entry && length(names)==0) fail("missing libraries declaration"); exit bad }
+' "$file"

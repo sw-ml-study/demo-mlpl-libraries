@@ -1,0 +1,11 @@
+schema_version = 1
+repository = "local"
+revision = "moving-main"
+[[libraries]]
+name = "result"
+version = "0.1.0"
+entry = "../result.mlpl"
+manifest_sha256 = "not-a-hash"
+[[libraries.files]]
+path = "../escape.mlpl"
+sha256 = "not-a-hash"

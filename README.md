@@ -20,6 +20,8 @@ initial demo uses explicit vendoring or a reproducible checkout/copy step; it
 does not claim that MLPL already has a package registry, dependency solver, or
 isolated module namespaces. Those gaps and the criteria for requesting minimal
 upstream work are covered in [the implementation plan](docs/plan.md).
+The versioned producer manifest, prefix, dependency, capability, and consumer
+provenance rules are defined in the [library contract](docs/library-contract.md).
 
 ## Intended repository shape
 
