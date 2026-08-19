@@ -1,0 +1,11 @@
+{
+  "task_type": "integration",
+  "state": {
+    "number": 4,
+    "step": "vendored-consumer"
+  },
+  "action": "Built shell installer and verification modes; added external consumer fixture; tested clean execution, lock pinning, tamper rejection, implicit replacement rejection, explicit repair, and missing dependencies; ran formatting and full pre-commit gate; committed and pushed.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-08-19T15:13:52"
+}

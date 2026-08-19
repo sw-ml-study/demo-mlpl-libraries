@@ -1,9 +1,10 @@
 number = 4
 slug = "vendored-consumer"
-status = "in-progress"
+status = "completed"
 description = "Implement a deterministic source vendor installer and an external-style fixtu..."
 role = "production"
 context_files = []
 created_at = "2026-08-18T11:35:39"
+completed_at = "2026-08-19T15:13:52"
 task_type = "integration"
-commits = []
+commits = ["262bd26f94654044c54fb8f357affb80f8ed12f5"]
