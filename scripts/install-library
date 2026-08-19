@@ -1,0 +1,49 @@
+#!/bin/sh
+set -eu
+usage() { echo "usage: install-library (--install|--check) --library NAME --dest DIR [--revision REV] [--repo DIR] [--upgrade]" >&2; exit 2; }
+mode= library= dest= revision=HEAD upgrade=0
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd); source_repo=$repo_root
+while [ "$#" -gt 0 ]; do case "$1" in
+  --install) mode=install ;; --check) mode=check ;;
+  --library) shift; library=${1:-} ;; --dest) shift; dest=${1:-} ;;
+  --revision) shift; revision=${1:-} ;; --repo) shift; source_repo=${1:-} ;;
+  --upgrade) upgrade=1 ;; *) usage ;; esac; shift; done
+[ -n "$mode" ] && [ -n "$library" ] && [ -n "$dest" ] || usage
+hash_file() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi; }
+if [ "$mode" = check ]; then
+  lock=$dest/swml.lock.toml; [ -f "$lock" ] || { echo "consumer lock not found: $lock" >&2; exit 1; }
+  "$repo_root/scripts/validate-lock" "$lock" >/dev/null
+  [ "$(sed -n 's/^name = "\([^"]*\)"/\1/p' "$lock" | head -1)" = "$library" ] || { echo "lock does not contain library $library" >&2; exit 1; }
+  awk '/^\[\[libraries.files\]\]$/{f=1;next} f&&/^path = /{gsub(/^path = "|"$/,"");p=$0} f&&/^sha256 = /{gsub(/^sha256 = "|"$/,"");print p " " $0;f=0}' "$lock" |
+  while read -r path expected; do
+    case "$path" in lib/*.mlpl|docs/*.md) ;; *) echo "unsafe locked path: $path" >&2; exit 1 ;; esac
+    installed=$dest/vendor/swml/$path; [ -f "$installed" ] || { echo "missing installed file: $path" >&2; exit 1; }
+    [ "$(hash_file "$installed")" = "$expected" ] || { echo "hash mismatch for $path" >&2; exit 1; }
+  done
+  echo "PASS installed $library provenance"; exit 0
+fi
+revision=$(git -C "$source_repo" rev-parse --verify "$revision^{commit}")
+case "$revision" in *[!0-9a-f]*|???????????????????????????????????????|?????????????????????????????????????????*) echo "revision is not a full commit hash" >&2; exit 1 ;; esac
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/swml-install.XXXXXX"); trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+git -C "$source_repo" show "$revision:catalog/libraries.toml" > "$scratch/catalog.toml"
+"$repo_root/scripts/validate-catalog" "$scratch/catalog.toml" >/dev/null
+awk -v wanted="$library" '/^\[\[libraries\]\]$/{if(keep)exit;block=$0 ORS;keep=0;next}{if(block!="")block=block $0 ORS}/^name = /{n=$0;gsub(/^name = "|"$/,"",n);if(n==wanted)keep=1}END{if(keep)printf "%s",block}' "$scratch/catalog.toml" > "$scratch/entry.toml"
+[ -s "$scratch/entry.toml" ] || { echo "library not found at revision: $library" >&2; exit 1; }
+field() { sed -n "s/^$1 = \"\([^\"]*\)\"/\1/p" "$scratch/entry.toml"; }
+version=$(field version); entry=$(field entry)
+dependencies=$(sed -n 's/^dependencies = \[\(.*\)\]/\1/p' "$scratch/entry.toml" | tr -d ' "')
+if [ -n "$dependencies" ]; then
+  old_ifs=$IFS; IFS=,; for dependency in $dependencies; do dep_name=${dependency%%@*};
+    grep -q "^name = \"$dep_name\"$" "$scratch/catalog.toml" || { echo "missing dependency $dependency required by $library" >&2; exit 1; }
+    echo "dependency installation is not implemented: $dependency required by $library" >&2; exit 1; done; IFS=$old_ifs
+fi
+lock=$dest/swml.lock.toml
+[ ! -e "$lock" ] || [ "$upgrade" -eq 1 ] || { echo "consumer lock already exists; pass --upgrade" >&2; exit 1; }
+mkdir -p "$dest/vendor/swml"
+files=$(sed -n 's/^source_files = \[\(.*\)\]/\1/p' "$scratch/entry.toml" | tr -d ' "' | tr ',' ' ')
+[ -n "$files" ] || { echo "library has no source files: $library" >&2; exit 1; }
+for path in $files; do case "$path" in lib/*.mlpl) ;; *) echo "unsafe source path: $path" >&2; exit 1 ;; esac; mkdir -p "$dest/vendor/swml/$(dirname "$path")"; git -C "$source_repo" show "$revision:$path" > "$dest/vendor/swml/$path"; done
+repository=$(git -C "$source_repo" config --get remote.origin.url || printf '%s' "$source_repo"); manifest_hash=$(hash_file "$scratch/entry.toml")
+{ echo 'schema_version = 1'; printf 'repository = "%s"\nrevision = "%s"\n[[libraries]]\nname = "%s"\nversion = "%s"\nentry = "%s"\nmanifest_sha256 = "%s"\n' "$repository" "$revision" "$library" "$version" "$entry" "$manifest_hash"; for path in $files; do echo '[[libraries.files]]'; printf 'path = "%s"\nsha256 = "%s"\n' "$path" "$(hash_file "$dest/vendor/swml/$path")"; done; } > "$scratch/lock.toml"
+"$repo_root/scripts/validate-lock" "$scratch/lock.toml" >/dev/null; mv "$scratch/lock.toml" "$lock"
+echo "installed $library $version at $revision"

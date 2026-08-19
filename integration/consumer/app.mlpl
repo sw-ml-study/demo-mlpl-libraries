@@ -1,0 +1,4 @@
+# External-style consumer of a vendored MLPL result library.
+include "vendor/swml/lib/result/result.mlpl";
+
+u:result_zip(ok(8), ok(6))

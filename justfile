@@ -15,6 +15,13 @@ mlpl-path:
 mlplunit-path:
     ./scripts/select-mlplunit
 
+# Install or verify a revision-pinned library in a consumer tree.
+install library dest revision="HEAD":
+    ./scripts/install-library --install --library {{library}} --dest {{dest}} --revision {{revision}}
+
+verify-install library dest:
+    ./scripts/install-library --check --library {{library}} --dest {{dest}}
+
 # Run the complete pre-commit gate.
 check:
     ./scripts/check

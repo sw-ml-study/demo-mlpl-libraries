@@ -57,6 +57,17 @@ library code lands.
 - [`result` 0.1.0](docs/result.md): small pure helpers for validation,
   contextual errors, error-payload mapping, and deterministic pairing.
 
+Install a library from an immutable commit into another MLPL repository, then
+verify its committed lock and file hashes:
+
+```sh
+just install result /path/to/consumer COMMIT_SHA
+just verify-install result /path/to/consumer
+```
+
+An existing lock is never replaced implicitly; pass `--upgrade` directly to
+`scripts/install-library` after reviewing the selected revision.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT).

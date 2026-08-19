@@ -1,6 +1,6 @@
 number = 4
 slug = "vendored-consumer"
-status = "pending"
+status = "in-progress"
 description = "Implement a deterministic source vendor installer and an external-style fixtu..."
 role = "production"
 context_files = []

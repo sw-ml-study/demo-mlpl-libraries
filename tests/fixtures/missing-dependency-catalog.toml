@@ -1,0 +1,11 @@
+schema_version = 1
+[[libraries]]
+name = "example"
+version = "0.1.0"
+entry = "lib/example/example.mlpl"
+prefix = "u:example_"
+documentation = "docs/example.md"
+license = "MIT"
+source_files = ["lib/example/example.mlpl"]
+capabilities = ["core.include.v1"]
+dependencies = ["ghost@^1.0.0"]

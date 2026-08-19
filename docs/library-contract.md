@@ -62,6 +62,22 @@ revision, ordered file set, path containment, and hashes. Consumers never edit
 hashes to make a check pass. Upgrades regenerate the complete library record and
 are reviewed like source changes.
 
+## Revision-pinned installation
+
+`scripts/install-library --install --library NAME --dest CONSUMER --revision
+COMMIT` resolves `COMMIT` to a full Git object ID, reads both the catalog and
+declared source blobs with `git show`, and writes them beneath
+`CONSUMER/vendor/swml/`. It therefore does not package uncommitted producer
+files. The generated `CONSUMER/swml.lock.toml` records the repository, resolved
+revision, catalog-entry hash, and installed file hashes.
+
+`--check` hashes only the consumer's vendored files and requires no producer
+source access. An existing lock makes installation fail closed; `--upgrade` is
+required to replace it and repairs/relocks every declared file. The current MVP
+rejects a dependency it cannot find with the exact dependency in its diagnostic,
+and rejects even catalog-present dependencies until transactional transitive
+installation is implemented. It never silently installs a partial graph.
+
 ## Known limitations
 
 - Version 1 defines deterministic vendoring, not a network registry or solver.

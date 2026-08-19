@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/swml-consumer-test.XXXXXX"); trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+consumer=$scratch/consumer; mkdir -p "$consumer"; cp "$repo_root/integration/consumer/app.mlpl" "$consumer/app.mlpl"
+revision=$(git -C "$repo_root" rev-parse HEAD)
+"$repo_root/scripts/install-library" --install --library result --dest "$consumer" --revision "$revision" >/dev/null
+grep -q "revision = \"$revision\"" "$consumer/swml.lock.toml"
+"$repo_root/scripts/install-library" --check --library result --dest "$consumer" >/dev/null
+output=$(cd "$consumer" && "$("$repo_root/scripts/select-mlpl")" --source-dir . -f app.mlpl)
+[ "$output" = 'Ok({left: 8, right: 6})' ] || { echo "unexpected consumer output: $output" >&2; exit 1; }
+printf '\n# tampered\n' >> "$consumer/vendor/swml/lib/result/result.mlpl"
+if "$repo_root/scripts/install-library" --check --library result --dest "$consumer" >/dev/null 2>&1; then echo "tampered source verified" >&2; exit 1; fi
+if "$repo_root/scripts/install-library" --install --library result --dest "$consumer" --revision "$revision" >/dev/null 2>&1; then echo "implicit replacement accepted" >&2; exit 1; fi
+"$repo_root/scripts/install-library" --install --upgrade --library result --dest "$consumer" --revision "$revision" >/dev/null
+"$repo_root/scripts/install-library" --check --library result --dest "$consumer" >/dev/null
+fixture=$scratch/missing; mkdir -p "$fixture/catalog" "$fixture/lib/example" "$fixture/docs"
+cp "$repo_root/tests/fixtures/missing-dependency-catalog.toml" "$fixture/catalog/libraries.toml"; cp "$repo_root/lib/result/result.mlpl" "$fixture/lib/example/example.mlpl"; echo fixture > "$fixture/docs/example.md"
+git -C "$fixture" init -q; git -C "$fixture" add catalog/libraries.toml lib/example/example.mlpl docs/example.md; git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid commit -q -m fixture
+if "$repo_root/scripts/install-library" --install --library example --dest "$scratch/missing-consumer" --repo "$fixture" >/dev/null 2>"$scratch/error"; then echo "missing dependency installed" >&2; exit 1; fi
+grep -q 'missing dependency ghost@' "$scratch/error"
+echo "PASS vendored cross-repository consumer contracts"
