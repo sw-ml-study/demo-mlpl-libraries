@@ -1,0 +1,11 @@
+{
+  "task_type": "mlpl-library",
+  "state": {
+    "number": 3,
+    "step": "result-library"
+  },
+  "action": "Ran a missing-module red test; implemented four prefixed Result helpers; formatted canonical MLPL; ran four native mlplunit cases and a standalone example; ran just check and diff checks; committed and pushed.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-08-19T10:02:33"
+}
