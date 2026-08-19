@@ -50,7 +50,12 @@ just check
 ```
 
 These commands will be introduced by the foundation saga before executable
-library code lands. Until then, this repository contains planning only.
+library code lands.
+
+## Available libraries
+
+- [`result` 0.1.0](docs/result.md): small pure helpers for validation,
+  contextual errors, error-payload mapping, and deterministic pairing.
 
 ## License
 

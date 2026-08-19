@@ -1,0 +1,40 @@
+# Small, pure helpers for validating and composing MLPL Result values.
+def u:result_ensure(condition, value, error_value) {
+  "Return Ok(value) when condition is true, otherwise Err(error_value).";
+  if condition {
+    ok(value)
+  } else {
+    err(error_value)
+  }
+}
+
+def u:result_context(context, result) {
+  "Preserve success or wrap an error payload with stable contextual fields.";
+  if is_err(result) {
+    err({cause: err_message(result), context: context, kind: "context"})
+  } else {
+    result
+  }
+}
+
+def u:result_map_error(transform, result) {
+  "Apply transform to an Err payload while preserving an Ok value unchanged.";
+  if is_err(result) {
+    err(call(transform, err_message(result)))
+  } else {
+    result
+  }
+}
+
+def u:result_zip(left, right) {
+  "Pair two Ok payloads, returning the leftmost Err unchanged.";
+  if is_err(left) {
+    left
+  } else {
+    if is_err(right) {
+      right
+    } else {
+      ok({left: unwrap(left), right: unwrap(right)})
+    }
+  }
+}

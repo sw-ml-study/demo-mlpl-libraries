@@ -1,0 +1,11 @@
+# Compose validation, structured context, and paired successful values.
+include "../lib/result/result.mlpl";
+
+def u:example_positive(value, label) {
+  "Validate that a scalar is positive using a caller-provided label.";
+  u:result_ensure(gt(value, 0), value, label)
+}
+
+width = u:example_positive(8, "width must be positive");
+height = u:example_positive(6, "height must be positive");
+u:result_context("rectangle", u:result_zip(width, height))

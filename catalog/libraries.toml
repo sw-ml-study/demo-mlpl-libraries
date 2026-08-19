@@ -1,4 +1,13 @@
 # Format contract: docs/library-contract.md.
 schema_version = 1
 
-libraries = []
+[[libraries]]
+name = "result"
+version = "0.1.0"
+entry = "lib/result/result.mlpl"
+prefix = "u:result_"
+documentation = "docs/result.md"
+license = "MIT"
+source_files = ["lib/result/result.mlpl"]
+capabilities = ["core.include.v1"]
+dependencies = []

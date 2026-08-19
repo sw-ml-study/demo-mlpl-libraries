@@ -1,0 +1,42 @@
+# Native mlplunit contract tests for the reusable Result helpers.
+include "lib/result/result.mlpl";
+
+def u:test_result_label(error_value) {
+  "Prefix an error payload for map-error tests.";
+  str_concat("validation: ", error_value)
+}
+
+@test {name: "ensure creates stable success and failure values", tags: ["result", "validation"]}
+def u:test_result_ensure() {
+  "Verify predicates select Ok values or preserve the supplied error payload.";
+  u:assert_eq(u:result_ensure(1, 42, "unused"), ok(42), "true predicate succeeds")?;
+  u:assert_eq(u:result_ensure(0, 42, "out of range"), err("out of range"), "false predicate fails")
+}
+
+@test {name: "context preserves success and structures failure", tags: ["result", "context"]}
+def u:test_result_context() {
+  "Verify context is inert on Ok and produces a stable structured Err.";
+  u:assert_eq(u:result_context("parse config", ok(7)), ok(7), "success is unchanged")?;
+  u:assert_eq(
+    u:result_context("parse config", err("bad token")),
+    err({cause: "bad token", context: "parse config", kind: "context"}),
+    "failure gains context"
+  )
+}
+
+@test {name: "map error transforms only failure payloads", tags: ["result", "mapping"]}
+def u:test_result_map_error() {
+  "Verify error mapping calls the transform only for Err values.";
+  u:assert_eq(u:result_map_error(:u:test_result_label, ok(5)), ok(5), "success is unchanged")?;
+  u:assert_eq(u:result_map_error(:u:test_result_label, err("missing")), err("validation: missing"), "error is mapped")
+}
+
+@test {name: "zip preserves first failure and pairs successes", tags: ["result", "composition"]}
+def u:test_result_zip() {
+  "Verify two independent results combine deterministically from left to right.";
+  u:assert_eq(u:result_zip(ok(2), ok(3)), ok({left: 2, right: 3}), "successes pair")?;
+  u:assert_eq(u:result_zip(err("left"), err("right")), err("left"), "first failure wins")?;
+  u:assert_eq(u:result_zip(ok(2), err("right")), err("right"), "right failure propagates")
+}
+
+u:run_registered_tests()
