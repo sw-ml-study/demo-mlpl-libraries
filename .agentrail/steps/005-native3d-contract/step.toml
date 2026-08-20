@@ -1,9 +1,10 @@
 number = 5
 slug = "native3d-contract"
-status = "in-progress"
+status = "completed"
 description = "Inventory the reusable native3d MLPL surface in ../demo-extensions as read-on..."
 role = "production"
 context_files = []
 created_at = "2026-08-18T11:35:39"
+completed_at = "2026-08-19T18:48:49"
 task_type = "research"
-commits = []
+commits = ["01dc69fd6b5918ed8e814de31b3d2d01132ef607"]
