@@ -1,6 +1,6 @@
 number = 5
 slug = "native3d-contract"
-status = "pending"
+status = "in-progress"
 description = "Inventory the reusable native3d MLPL surface in ../demo-extensions as read-on..."
 role = "production"
 context_files = []

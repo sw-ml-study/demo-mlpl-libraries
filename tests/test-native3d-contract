@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+contract=$repo_root/docs/native3d-migration.md
+
+grep -Fq '62c0d1bc460678d09ed0e3b08388e09b151d42f8' "$contract"
+for function in clamp vector_length normalize camera_state camera_defaults camera_valid camera_record camera_restate camera_reduce pick_ray ray_plane_hit valid_color uniform_line_style lines plane_grid scene_command transition on_event run_app; do
+    grep -Fq "u:n3d_$function" "$contract" || { echo "missing native3d API: $function" >&2; exit 1; }
+done
+for boundary in 'extension.port.v1' '27 application files' 'without a window' 'Blocker: none'; do
+    grep -Fq "$boundary" "$contract" || { echo "missing native3d contract boundary: $boundary" >&2; exit 1; }
+done
+echo "PASS frozen native3d migration contract"

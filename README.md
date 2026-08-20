@@ -57,6 +57,11 @@ library code lands.
 - [`result` 0.1.0](docs/result.md): small pure helpers for validation,
   contextual errors, error-payload mapping, and deterministic pairing.
 
+The next extraction is governed by the frozen
+[Native3D migration contract](docs/native3d-migration.md), which separates pure
+camera/geometry and headless transition logic from Port-backed lifecycle and
+application-specific behavior.
+
 Install a library from an immutable commit into another MLPL repository, then
 verify its committed lock and file hashes:
 
