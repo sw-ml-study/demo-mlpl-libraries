@@ -1,9 +1,10 @@
 number = 6
 slug = "native3d-library"
-status = "in-progress"
+status = "completed"
 description = "Implement the generic native3d MLPL modules in this repository test-first und..."
 role = "production"
 context_files = []
 created_at = "2026-08-18T11:35:39"
+completed_at = "2026-08-22T18:13:25"
 task_type = "mlpl-library"
-commits = []
+commits = ["e4389b57ee7d895f8614847e710308caa1baeeef"]
