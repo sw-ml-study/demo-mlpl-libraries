@@ -1,0 +1,21 @@
+# Demo-extensions-shaped headless consumer of the vendored Native3D entry.
+include "vendor/swml/lib/native3d/app.mlpl";
+
+def u:fixture_reduce(state, event) {
+  "Advance fixture state without embedding application policy in the library.";
+  {value: state.value + event.delta, camera: state.camera, revision: state.revision + 1}
+}
+
+def u:fixture_render(state) {
+  "Render one generic line whose endpoint reflects fixture state.";
+  style = u:n3d_uniform_line_style(1, [1, 1, 1, 1], 1)?;
+  u:n3d_lines([[0, 0, 0], [state.value, 0, 0]], [[0, 1]], style, 0)
+}
+
+initial = {value: 1, camera: u:n3d_camera_defaults(), revision: 0};
+transition = u:n3d_transition(initial, {kind: "fixture", delta: 2}, :u:fixture_reduce, :u:fixture_render, "FIXTURE")?;
+if eq(transition.state.value, 3) * eq(transition.command.revision, 1) {
+  ok(transition.command.op)
+} else {
+  err("vendored native3d transition mismatch")
+}

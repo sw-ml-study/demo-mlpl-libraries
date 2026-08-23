@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/native3d-vendor-test.XXXXXX"); trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+producer=$scratch/producer; consumer=$scratch/demo-extensions
+mkdir -p "$producer/catalog" "$producer/lib/native3d" "$producer/docs" "$consumer"
+cp "$repo_root/catalog/libraries.toml" "$producer/catalog/libraries.toml"
+cp "$repo_root/lib/native3d/camera.mlpl" "$producer/lib/native3d/camera.mlpl"
+cp "$repo_root/lib/native3d/geometry.mlpl" "$producer/lib/native3d/geometry.mlpl"
+cp "$repo_root/lib/native3d/app.mlpl" "$producer/lib/native3d/app.mlpl"
+cp "$repo_root/lib/result/result.mlpl" "$producer/lib/result.mlpl"
+cp "$repo_root/docs/native3d.md" "$producer/docs/native3d.md"
+git -C "$producer" init -q; git -C "$producer" add catalog lib docs
+git -C "$producer" -c user.name=fixture -c user.email=fixture@example.invalid commit -q -m fixture
+cp "$repo_root/integration/demo-extensions/native3d-consumer.mlpl" "$consumer/app.mlpl"
+"$repo_root/scripts/install-library" --install --library native3d --dest "$consumer" --repo "$producer" >/dev/null
+"$repo_root/scripts/install-library" --check --library native3d --dest "$consumer" >/dev/null
+output=$(cd "$consumer" && "$("$repo_root/scripts/select-mlpl")" --source-dir . -f app.mlpl)
+[ "$output" = 'Ok(set_scene)' ] || { echo "unexpected native3d consumer output: $output" >&2; exit 1; }
+echo "PASS vendored demo-extensions-shaped native3d consumer"

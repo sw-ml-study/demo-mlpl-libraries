@@ -11,3 +11,14 @@ license = "MIT"
 source_files = ["lib/result/result.mlpl"]
 capabilities = ["core.include.v1"]
 dependencies = []
+
+[[libraries]]
+name = "native3d"
+version = "0.1.0"
+entry = "lib/native3d/app.mlpl"
+prefix = "u:n3d_"
+documentation = "docs/native3d.md"
+license = "MIT"
+source_files = ["lib/native3d/camera.mlpl", "lib/native3d/geometry.mlpl", "lib/native3d/app.mlpl"]
+capabilities = ["core.include.v1", "extension.port.v1"]
+dependencies = []
