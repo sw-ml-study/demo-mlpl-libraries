@@ -1,0 +1,212 @@
+# Bounded JSON Lines reader: line-numbered diagnostics over per-line parse_json with budgets.
+def u:jsonl_option(opts, name, fallback) {
+  "Return the named option from opts or fallback when the field is absent.";
+  if has_field(opts, name) {
+    unwrap(record_get(opts, name))
+  } else {
+    fallback
+  }
+}
+
+def u:jsonl_budgets(opts) {
+  "Resolve the parse and read budgets from opts with documented defaults.";
+  {
+    max_bytes: u:jsonl_option(opts, "max_bytes", 16777216),
+    max_line_bytes: u:jsonl_option(opts, "max_line_bytes", 65536),
+    max_depth: u:jsonl_option(opts, "max_depth", 32),
+    max_elements: u:jsonl_option(opts, "max_elements", 4096),
+    blank_lines: u:jsonl_option(opts, "blank_lines", "skip")
+  }
+}
+
+def u:jsonl_error(kind, line, cause, path) {
+  "Build the structured error every reader function returns.";
+  err({kind: kind, line: line, cause: cause, path: path})
+}
+
+def u:jsonl_split_lines(text) {
+  "Split text on LF into a string list, dropping one final terminator; empty text yields no lines.";
+  length = str_len(text);
+  if eq(length, 0) {
+    str_split("", "")
+  } else {
+    if str_eq(str_slice(text, length - 1, 1), "\n") {
+      str_split(str_slice(text, 0, length - 1), "\n")
+    } else {
+      str_split(text, "\n")
+    }
+  }
+}
+
+def u:jsonl_line(lines, index) {
+  "Return the zero-based line without a trailing carriage return.";
+  line = unwrap(list_get(lines, index));
+  length = str_len(line);
+  if gt(length, 0) {
+    if str_eq(str_slice(line, length - 1, 1), "\r") {
+      str_slice(line, 0, length - 1)
+    } else {
+      line
+    }
+  } else {
+    line
+  }
+}
+
+def u:jsonl_is_blank(line) {
+  "Return 1 when the line is empty or only ASCII whitespace.";
+  members = str_split(line, "");
+  count = list_len(members);
+  index = 0;
+  blank = 1;
+  while blank * lt(index, count) {
+    blank = 1 - eq(str_find(decode_bytes([9, 10, 11, 12, 13, 32]), unwrap(list_get(members, index))), -1);
+    index = index + 1
+  };
+  blank
+}
+
+def u:jsonl_parse_line(line, budgets) {
+  "Parse one line under budgets, requiring a JSON object; the error payload is the cause text.";
+  parsed = parse_json(line, {max_bytes: budgets.max_line_bytes, max_depth: budgets.max_depth, max_elements: budgets.max_elements});
+  if is_err(parsed) {
+    parsed
+  } else {
+    kind = type_of(unwrap(parsed));
+    if str_eq(kind, "record") {
+      parsed
+    } else {
+      err(str_concat(str_concat("record is a JSON ", kind), ", not an object"))
+    }
+  }
+}
+
+def u:jsonl_numbers_upto(count) {
+  "Return the one-based line numbers 1..count, guarding the empty case the host cannot broadcast.";
+  if gt(count, 0) {
+    range(count) + 1
+  } else {
+    []
+  }
+}
+
+def u:jsonl_scan(text, opts, limit, path) {
+  "Validate up to limit records of text and return the record set; limit below zero means every record.";
+  budgets = u:jsonl_budgets(opts);
+  lines = u:jsonl_split_lines(text);
+  total = list_len(lines);
+  wanted = if lt(limit, 0) {
+    total
+  } else {
+    limit
+  };
+  index = 0;
+  count = 0;
+  numbers = [];
+  numbered = 0;
+  failure = ok(0);
+  while lt(index, total) * lt(count, wanted) * is_ok(failure) {
+    line = u:jsonl_line(lines, index);
+    if u:jsonl_is_blank(line) {
+      if str_eq(budgets.blank_lines, "skip") {
+        if numbered {
+          0
+        } else {
+          numbers = u:jsonl_numbers_upto(count);
+          numbered = 1
+        }
+      } else {
+        failure = u:jsonl_error("jsonl-blank", index + 1, "blank line is not allowed", path)
+      }
+    } else {
+      parsed = u:jsonl_parse_line(line, budgets);
+      if is_err(parsed) {
+        failure = u:jsonl_error("jsonl-parse", index + 1, err_message(parsed), path)
+      } else {
+        count = count + 1;
+        if numbered {
+          numbers = concat(numbers, [index + 1])
+        } else {
+          0
+        }
+      }
+    };
+    index = index + 1
+  };
+  if is_err(failure) {
+    failure
+  } else {
+    if numbered {
+      ok({count: count, line_numbers: numbers, lines: lines, budgets: budgets, path: path})
+    } else {
+      ok({count: count, line_numbers: u:jsonl_numbers_upto(count), lines: lines, budgets: budgets, path: path})
+    }
+  }
+}
+
+def u:jsonl_parse(text, opts) {
+  "Validate every record in text and return ok(record set) or a line-numbered err.";
+  u:jsonl_scan(text, opts, 0 - 1, "")
+}
+
+def u:jsonl_load_text(path, opts) {
+  "Read a whole file under the byte budget as exact UTF-8 text, or return a structured err.";
+  budgets = u:jsonl_budgets(opts);
+  size = file_size(path);
+  if is_err(size) {
+    u:jsonl_error("jsonl-read", 0, err_message(size), path)
+  } else {
+    if gt(unwrap(size), budgets.max_bytes) {
+      u:jsonl_error("jsonl-budget", 0, str_concat(str_concat(str_concat("file is ", to_string(unwrap(size))), " bytes, budget is "), to_string(budgets.max_bytes)), path)
+    } else {
+      bytes = read_bytes(path, 0, unwrap(size));
+      if is_err(bytes) {
+        u:jsonl_error("jsonl-read", 0, err_message(bytes), path)
+      } else {
+        text = decode_bytes(unwrap(bytes));
+        if equal(tokenize_bytes(text), unwrap(bytes)) {
+          ok(text)
+        } else {
+          u:jsonl_error("jsonl-encoding", 0, "file is not valid UTF-8", path)
+        }
+      }
+    }
+  }
+}
+
+def u:jsonl_read(path, opts) {
+  "Read a JSON Lines file under budgets and return ok(record set) or a structured err.";
+  text = u:jsonl_load_text(path, opts)?;
+  u:jsonl_scan(text, opts, 0 - 1, path)
+}
+
+def u:jsonl_take_first(path, n, opts) {
+  "Read a JSON Lines file and validate only its first n records, leaving later lines unparsed.";
+  text = u:jsonl_load_text(path, opts)?;
+  u:jsonl_scan(text, opts, n, path)
+}
+
+def u:jsonl_count(records) {
+  "Return the number of validated records in a record set.";
+  records.count
+}
+
+def u:jsonl_line_number(records, index) {
+  "Return the one-based source line of the zero-based record index, or an err when out of range.";
+  if lt(index, 0) + (1 - lt(index, records.count)) {
+    u:jsonl_error("jsonl-index", 0, str_concat(str_concat(str_concat("record index ", to_string(index)), " is out of range for count "), to_string(records.count)), records.path)
+  } else {
+    ok(take(records.line_numbers, 0, index))
+  }
+}
+
+def u:jsonl_get(records, index) {
+  "Return the zero-based record of a record set as ok(record), parsing its validated line on demand.";
+  line_number = u:jsonl_line_number(records, index)?;
+  parsed = u:jsonl_parse_line(u:jsonl_line(records.lines, line_number - 1), records.budgets);
+  if is_err(parsed) {
+    u:jsonl_error("jsonl-parse", line_number, err_message(parsed), records.path)
+  } else {
+    parsed
+  }
+}

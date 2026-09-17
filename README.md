@@ -61,6 +61,8 @@ library code lands.
 - [`text` 0.1.0](docs/text.md): total, character-indexed trim, affix and
   substring tests, bounded replace, padding, line splitting, and ASCII
   character classes over the core string builtins.
+- [`jsonl` 0.1.0](docs/jsonl.md): budgeted JSON Lines reader with one-based
+  line diagnostics, a bounded preview, and on-demand record access.
 
 The Native3D extraction is governed by the frozen
 [Native3D migration contract](docs/native3d-migration.md). The libraries

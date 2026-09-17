@@ -1,0 +1,20 @@
+# Preview the first records of a JSON Lines dataset and report where a bad line fails.
+include "../lib/jsonl/jsonl.mlpl";
+
+def u:example_preview(path, n) {
+  "Print up to n records of path with their source line numbers.";
+  records = u:jsonl_take_first(path, n, {max_bytes: 65536})?;
+  index = 0;
+  while lt(index, u:jsonl_count(records)) {
+    record = u:jsonl_get(records, index)?;
+    line = u:jsonl_line_number(records, index)?;
+    print("line", line, "problem:", record.problem, "answer:", record.answer);
+    index = index + 1
+  };
+  ok(u:jsonl_count(records))
+}
+
+u:example_preview("tests/fixtures/jsonl/basic.jsonl", 5)?;
+failure = u:jsonl_read("tests/fixtures/jsonl/bad-line.jsonl", {});
+print("bad-line.jsonl fails at line", err_message(failure).line, "because", err_message(failure).cause);
+failure

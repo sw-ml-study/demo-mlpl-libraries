@@ -5,8 +5,9 @@ libraries are recorded here with the workaround in use, so upstream can
 decide whether and when to ship them. Each entry names the library that hit
 the gap and the test that would notice a change.
 
-Status as of 2026-09-16: nothing blocks a published library. All entries
-are conveniences or retirement triggers.
+Status as of 2026-09-17: nothing blocks a published library. S4 is a
+crash that libraries must guard against; the rest are conveniences or
+retirement triggers.
 
 ## S1. Native string helpers (`str_replace`, `str_trim`, `str_starts_with`, `str_contains`)
 
@@ -42,6 +43,31 @@ are conveniences or retirement triggers.
 - Priority: medium. This is the first gap likely to shape a library API
   (record-of-results instead of list-of-records) rather than merely its
   implementation.
+
+## S4. Interpreter panic when broadcasting a scalar over an empty array
+
+- Found by: `jsonl` 0.1.0 (`range(0) + 1` for an empty record set).
+- Gap: `range(0) + 1` aborts the process with a Rust panic (`index out of
+  bounds: the len is 0 but the index is 0` in
+  `mlpl-array-ops-element/src/broadcast.rs`) instead of returning an empty
+  array or an `err`. A panic cannot be caught by `try`, so a library
+  cannot make the host total on its own.
+- Workaround: `u:jsonl_numbers_upto` returns `[]` for a zero count before
+  any arithmetic. Every library in this repository must guard empty arrays
+  before element-wise operations until this is fixed.
+- Priority: high. It is a crash reachable from valid data (an empty file).
+
+## S5. A general list type, or records with computed keys
+
+- Found by: `jsonl` 0.1.0. The requested `ok(list of records)` cannot be
+  expressed: values are arrays, strings, string lists, records, and
+  Results, and `parse_json` rejects arrays of objects by design.
+- Workaround: readers return a record set (`{count, line_numbers, lines,
+  budgets}`) and parse each record on demand through `u:jsonl_get`. The
+  same shape will serve the safetensors header and checkpoint libraries.
+- Priority: medium. A `list_map`/`list_of_records` form, or a builtin that
+  builds a record from a key list and a value list, would let a library
+  return fully parsed collections.
 
 ## Not requested
 

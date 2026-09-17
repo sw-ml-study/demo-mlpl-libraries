@@ -1,6 +1,6 @@
 number = 2
 slug = "jsonl-library"
-status = "pending"
+status = "in-progress"
 description = "Implement the L2 JSONL reader library test-first under docs/library-contract...."
 role = "production"
 context_files = []

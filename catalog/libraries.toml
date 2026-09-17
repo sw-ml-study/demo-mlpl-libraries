@@ -33,3 +33,14 @@ license = "MIT"
 source_files = ["lib/text/text.mlpl"]
 capabilities = ["core.include.v1"]
 dependencies = []
+
+[[libraries]]
+name = "jsonl"
+version = "0.1.0"
+entry = "lib/jsonl/jsonl.mlpl"
+prefix = "u:jsonl_"
+documentation = "docs/jsonl.md"
+license = "MIT"
+source_files = ["lib/jsonl/jsonl.mlpl"]
+capabilities = ["core.include.v1", "fs.read-bounded.v1"]
+dependencies = []

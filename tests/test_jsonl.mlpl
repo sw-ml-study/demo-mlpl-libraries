@@ -1,0 +1,120 @@
+# Native mlplunit contract tests for the bounded JSON Lines reader.
+include "lib/jsonl/jsonl.mlpl";
+
+def u:test_jsonl_has(text, needle) {
+  "Return 1 when needle occurs in text.";
+  1 - eq(str_find(text, needle), -1)
+}
+
+def u:test_jsonl_field(result, name) {
+  "Return one field of a structured reader error.";
+  unwrap(record_get(err_message(result), name))
+}
+
+@test {name: "jsonl reads terminated, unterminated, and CRLF files", tags: ["jsonl", "read"]}
+def u:test_jsonl_read_basic() {
+  "Verify records, counts, line numbers, and on-demand access for well-formed files.";
+  basic = u:jsonl_read("tests/fixtures/jsonl/basic.jsonl", {})?;
+  u:assert_eq(u:jsonl_count(basic), 2, "two records")?;
+  u:assert_eq(basic.line_numbers, [1, 2], "line numbers without blanks")?;
+  u:assert_eq(u:jsonl_get(basic, 1), ok({answer: "2", problem: "q"}), "second record parses on demand")?;
+  u:assert_eq(u:jsonl_line_number(basic, 0), ok(1), "first record is on line one")?;
+  crlf = u:jsonl_read("tests/fixtures/jsonl/crlf.jsonl", {})?;
+  u:assert_eq([u:jsonl_count(crlf), unwrap(u:jsonl_get(crlf, 1)).a], [2, 2], "CRLF lines parse")?;
+  direct = u:jsonl_parse("{\"a\":1}\n{\"a\":2}", {})?;
+  u:assert_eq(u:jsonl_count(direct), 2, "unterminated text keeps its last record")
+}
+
+@test {name: "jsonl empty input and blank-line policies", tags: ["jsonl", "blank"]}
+def u:test_jsonl_blank_lines() {
+  "Verify empty files, skipped blank lines with original numbering, and the error policy.";
+  empty = u:jsonl_read("tests/fixtures/jsonl/empty.jsonl", {})?;
+  u:assert_eq(u:jsonl_count(empty), 0, "empty file has no records")?;
+  u:assert_true(is_err(u:jsonl_get(empty, 0)), "no record zero in an empty set")?;
+  skipped = u:jsonl_read("tests/fixtures/jsonl/blanks.jsonl", {})?;
+  u:assert_eq([u:jsonl_count(skipped), 0], [2, 0], "blank and whitespace lines are skipped by default")?;
+  u:assert_eq(skipped.line_numbers, [1, 4], "records keep their source line numbers")?;
+  u:assert_eq(u:jsonl_get(skipped, 1), ok({a: 4}), "record after blanks parses")?;
+  strict = u:jsonl_read("tests/fixtures/jsonl/blanks.jsonl", {blank_lines: "error"});
+  u:assert_true(is_err(strict), "error policy rejects blank lines")?;
+  u:assert_eq(u:test_jsonl_field(strict, "kind"), "jsonl-blank", "blank error kind")?;
+  u:assert_eq(u:test_jsonl_field(strict, "line"), 2, "blank error names the line")
+}
+
+@test {name: "jsonl diagnoses malformed and non-object lines by number", tags: ["jsonl", "errors"]}
+def u:test_jsonl_line_errors() {
+  "Verify parse failures and non-object records carry one-based line numbers and causes.";
+  bad = u:jsonl_read("tests/fixtures/jsonl/bad-line.jsonl", {});
+  u:assert_eq(u:test_jsonl_field(bad, "kind"), "jsonl-parse", "malformed line two kind")?;
+  u:assert_eq(u:test_jsonl_field(bad, "line"), 2, "malformed line two line")?;
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(bad, "cause"), "parse_json"), "cause comes from parse_json")?;
+  u:assert_eq(u:test_jsonl_field(bad, "path"), "tests/fixtures/jsonl/bad-line.jsonl", "error carries the path")?;
+  array = u:jsonl_read("tests/fixtures/jsonl/not-object.jsonl", {});
+  u:assert_eq(u:test_jsonl_field(array, "kind"), "jsonl-parse", "array record on line three kind")?;
+  u:assert_eq(u:test_jsonl_field(array, "line"), 3, "array record on line three line")?;
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(array, "cause"), "not an object"), "cause explains the object requirement")?;
+  scalar = u:jsonl_parse("{\"a\":1}\n\"text\"\n", {});
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(scalar, "cause"), "JSON string"), "scalar record names its kind")?;
+  u:assert_eq(u:test_jsonl_field(scalar, "path"), "", "direct parse has no path")
+}
+
+@test {name: "jsonl enforces byte, line, depth, and element budgets", tags: ["jsonl", "budgets"]}
+def u:test_jsonl_budgets() {
+  "Verify file and per-line budgets fail closed with structured errors.";
+  file_budget = u:jsonl_read("tests/fixtures/jsonl/basic.jsonl", {max_bytes: 10});
+  u:assert_eq(u:test_jsonl_field(file_budget, "kind"), "jsonl-budget", "file byte budget kind")?;
+  u:assert_eq(u:test_jsonl_field(file_budget, "line"), 0, "file byte budget line")?;
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(file_budget, "cause"), "budget is 10"), "budget cause states the limit")?;
+  line_budget = u:jsonl_read("tests/fixtures/jsonl/basic.jsonl", {max_line_bytes: 8});
+  u:assert_eq(u:test_jsonl_field(line_budget, "kind"), "jsonl-parse", "line byte budget kind")?;
+  u:assert_eq(u:test_jsonl_field(line_budget, "line"), 1, "line byte budget line")?;
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(line_budget, "cause"), "max_bytes"), "line budget cause")?;
+  depth = u:jsonl_read("tests/fixtures/jsonl/deep.jsonl", {max_depth: 2});
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(depth, "cause"), "depth"), "depth budget")?;
+  elements = u:jsonl_read("tests/fixtures/jsonl/basic.jsonl", {max_elements: 1});
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(elements, "cause"), "max_elements"), "element budget")?;
+  exact = u:jsonl_read("tests/fixtures/jsonl/basic.jsonl", {max_bytes: 58})?;
+  u:assert_eq(u:jsonl_count(exact), 2, "a budget equal to the size passes")
+}
+
+@test {name: "jsonl take_first validates only the requested records", tags: ["jsonl", "take"]}
+def u:test_jsonl_take_first() {
+  "Verify take_first stops before later malformed lines and clamps to the available records.";
+  first = u:jsonl_take_first("tests/fixtures/jsonl/bad-line.jsonl", 1, {})?;
+  u:assert_eq([u:jsonl_count(first), unwrap(u:jsonl_get(first, 0)).a], [1, 1], "line two is never parsed")?;
+  u:assert_true(is_err(u:jsonl_get(first, 1)), "records beyond n are not exposed")?;
+  clamped = u:jsonl_take_first("tests/fixtures/jsonl/basic.jsonl", 5, {})?;
+  u:assert_eq(u:jsonl_count(clamped), 2, "n larger than the file returns every record")?;
+  none = u:jsonl_take_first("tests/fixtures/jsonl/basic.jsonl", 0, {})?;
+  u:assert_eq(u:jsonl_count(none), 0, "zero records requested")?;
+  blanks = u:jsonl_take_first("tests/fixtures/jsonl/blanks.jsonl", 2, {})?;
+  u:assert_eq(blanks.line_numbers, [1, 4], "skipped blanks do not count toward n")
+}
+
+@test {name: "jsonl host refusals become structured read errors", tags: ["jsonl", "capability"]}
+def u:test_jsonl_host_refusals() {
+  "Verify missing files, sandbox escapes, and invalid UTF-8 return errs rather than hard errors.";
+  missing = u:jsonl_read("tests/fixtures/jsonl/missing.jsonl", {});
+  u:assert_eq(u:test_jsonl_field(missing, "kind"), "jsonl-read", "missing file kind")?;
+  u:assert_eq(u:test_jsonl_field(missing, "line"), 0, "missing file line")?;
+  escape = u:jsonl_read("../outside.jsonl", {});
+  u:assert_eq(u:test_jsonl_field(escape, "kind"), "jsonl-read", "sandbox escape is refused by the host")?;
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(escape, "cause"), "sandbox"), "escape cause names the sandbox")?;
+  encoding = u:jsonl_read("tests/fixtures/jsonl/bad-utf8.jsonl", {});
+  u:assert_eq(u:test_jsonl_field(encoding, "kind"), "jsonl-encoding", "invalid UTF-8 is rejected exactly")?;
+  preview = u:jsonl_take_first("tests/fixtures/jsonl/missing.jsonl", 1, {});
+  u:assert_eq(u:test_jsonl_field(preview, "kind"), "jsonl-read", "take_first shares the read path")
+}
+
+@test {name: "jsonl record access is bounds checked", tags: ["jsonl", "access"]}
+def u:test_jsonl_access() {
+  "Verify get and line_number reject out-of-range indexes with structured errors.";
+  basic = u:jsonl_read("tests/fixtures/jsonl/basic.jsonl", {})?;
+  low = u:jsonl_get(basic, 0 - 1);
+  high = u:jsonl_line_number(basic, 2);
+  u:assert_eq([u:test_jsonl_field(low, "kind"), u:test_jsonl_field(high, "kind")], ["jsonl-index", "jsonl-index"], "both bounds")?;
+  u:assert_true(u:test_jsonl_has(u:test_jsonl_field(high, "cause"), "count 2"), "cause states the count")?;
+  u:assert_eq(u:jsonl_get(basic, 0), ok({answer: "1", problem: "p"}), "first record")
+}
+
+u:run_registered_tests()
