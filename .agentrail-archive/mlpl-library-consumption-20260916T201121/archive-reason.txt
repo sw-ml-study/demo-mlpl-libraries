@@ -1,0 +1,1 @@
+Superseded by requested-libraries saga (2026-09-16). Steps 7 consumer-handoff and 9 distribution-decision remain pending and are deferred, not abandoned; step 8 library-expansion is replaced by the new saga.

@@ -1,0 +1,9 @@
+number = 6
+slug = "consumer-evidence"
+status = "pending"
+description = "Produce executable consumer evidence and answer the requesting repository. Fo..."
+role = "validation"
+context_files = []
+created_at = "2026-09-16T20:11:21"
+task_type = "integration"
+commits = []

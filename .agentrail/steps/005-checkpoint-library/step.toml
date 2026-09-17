@@ -1,0 +1,9 @@
+number = 5
+slug = "checkpoint-library"
+status = "pending"
+description = "Implement the L4 per-tensor MLPB checkpoint library test-first under docs/lib..."
+role = "production"
+context_files = []
+created_at = "2026-09-16T20:11:21"
+task_type = "library"
+commits = []

@@ -1,175 +1,126 @@
-# MLPL libraries demonstration plan
+# Requested MLPL libraries plan
 
 ## Outcome
 
-Prove that an MLPL application in a separate repository can consume a tested,
-versioned, domain-neutral MLPL library without copying its implementation by
-hand. `demo-extensions` is the first real consumer, but the conventions must
-also fit argument parsing, structured error handling, filesystem helpers, data
-preparation, and MLX/CUDA wrappers.
+Publish the domain-neutral MLPL libraries that
+`../reasoning-from-scratch/docs/demo-mlpl-libraries-requests.md` (status
+2026-09-16) lists as concrete promotion candidates, in the order that
+document expects them to become real: text helpers (L1), a JSONL reader
+(L2), a bounded safetensors header reader promoted from `../demo-ml-utils`
+(L3), and per-tensor `MLPB` checkpoint helpers (L4). Each library lands
+under the frozen version-1 contract in `docs/library-contract.md`: one entry
+file beneath `lib/`, an exclusive `u:<name>_` prefix, module comments and
+docstrings, native mlplunit tests, a catalog entry, documentation, and
+revision-pinned, hash-locked installation proven from a consumer fixture.
 
-The deliverable is more than a collection of snippets: it is a reproducible
-author-test-package-consume workflow, with compatibility metadata, executable
-cross-repository evidence, and clear boundaries between ordinary MLPL modules,
-native capabilities, and missing language/package functionality.
+The deliverable is a set of libraries a consumer can vendor today by pinned
+revision, plus written answers to the requesting repository: exact names,
+versions, prefixes, capabilities, and the revision to pin.
 
 ## Evidence and current constraints
 
-- Upstream `sw-mlpl` documents `include "path.mlpl"` as top-level, static,
-  source-order composition. Script and compiler paths expand includes beneath a
-  sandboxed `--source-dir`; duplicate loads are ignored and cycles diagnosed.
-- Included definitions currently share the global `u:` namespace. Prefixes such
-  as `u:result_*`, `u:cli_*`, and `u:n3d_*` are therefore part of the public ABI,
-  not cosmetic style.
-- Native mlplunit provides `@test`, reflection, fixtures, and isolated script
-  execution. Library behavior can be tested without inventing a shell-only
-  harness.
-- `demo-extensions/lib/native3d` already separates generic camera, geometry,
-  and Port lifecycle helpers from cube, game, and Life semantics. It is the
-  best initial extraction and external-consumer proof.
-- MLX/CUDA modules must be MLPL facades over capability probes and generic
-  upstream/native primitives. This repository must not duplicate backend
-  kernels, own device memory unsafely, or encode application semantics.
-- There is no demonstrated registry, dependency solver, version resolver,
-  namespaced import, or remote fetch surface. The MVP must not imply otherwise.
+- The request document says no request is formally triggered yet; the
+  promotion bar is unrelated consumers. This saga builds the candidates
+  ahead of that bar so the requesting repository can vendor instead of
+  re-deriving, and records the consumer evidence it does have.
+- `include` splices sources into one global `u:` namespace, so prefixes are
+  ABI. Each new library owns one prefix and includes no other library.
+- The installer rejects catalog-present dependencies until transactional
+  transitive installation exists. Every library in this saga therefore
+  declares `dependencies = []` and carries any tiny private helper it needs
+  under its own prefix rather than including `result` or `text`.
+- Host surface available today (from sibling probes, read-only): character
+  indexed `str_len`, `str_slice`, `str_find`, `str_concat`, `str_split`,
+  `str_join`, `chars`; `parse_json` with budgets that rejects arrays of
+  objects by design; bounded `read_bytes(path, offset, length)`,
+  `file_size`, `decode_bytes`, `tokenize_bytes`, `read_text`, `write_text`,
+  `write_bytes`, `write_atomic`, `make_dir`, `sha256`, `to_native`,
+  `parse_native`. `str_replace`, `str_trim`, `str_starts_with`, and
+  `str_contains` do not exist as builtins (`str-helpers` probe fails).
+- `../demo-ml-utils` already proved the safetensors header idiom: eight
+  byte little-endian length prefix, header budget, `file_size` check, two
+  budgeted reads, JSON validation, and ten tiny fixtures. It stays the
+  algorithmic owner of tensor decoding and cataloging.
+- Sibling repositories (`../sw-mlpl`, `../demo-extensions`,
+  `../demo-ml-utils`, `../reasoning-from-scratch`) are read-only evidence.
+  Needed changes there are documented, never applied.
 
-## Design principles
+## Steps
 
-1. One module has one responsibility and a documented prefix, inputs, outputs,
-   effects, errors, and required host capabilities.
-2. Pure MLPL is preferred. Effectful helpers wrap public sandboxed APIs; native
-   helpers wrap versioned public extension/backend surfaces.
-3. A module ships contract tests beside consumer integration tests. Examples
-   are not substitutes for assertions.
-4. Consumers choose dependencies explicitly. The first reproducible mechanism
-   is a lock-described vendor/copy operation into the consumer source root;
-   symlink-only success is not portable release evidence.
-5. Compatibility is capability-based first and release-tag based second. A
-   manifest records module version, exported prefixes, dependencies, and tested
-   `sw-mlpl` revisions/capabilities.
-6. General-purpose libraries contain no demo-specific policy. Applications own
-   UI rules, scoring, dataset choice, model choice, and business semantics.
-
-## Proposed layout
-
-```text
-lib/
-  result/result.mlpl
-  cli/args.mlpl
-  fs/path.mlpl
-  data/split.mlpl
-  native3d/{camera,geometry,app}.mlpl
-  accel/{capabilities,mlx,cuda}.mlpl
-catalog/libraries.toml
-tests/test_*.mlpl
-examples/*.mlpl
-integration/demo-extensions/
-scripts/{check,check-mlpl-style,run-tests,install-library}
-mlplunit.conf
-justfile
-```
-
-Names are candidates, not promises. Each library is admitted only with a real
-consumer need and a narrow contract. `result` and the native3d extraction give
-one pure module and one capability-backed module before breadth is added.
-
-## Consumer workflow to demonstrate
-
-1. Select an immutable library revision (initially a git tag/commit).
-2. Run a deterministic installer that copies declared source files and writes a
-   lock record containing source revision and hashes beneath the application's
-   source root, for example `vendor/swml/`.
-3. Include the vendored entry module from application source. No absolute paths
-   or implicit current-directory search are allowed.
-4. Run the consumer's own mlplunit suite plus a provenance/hash check.
-5. Upgrade explicitly, review source/API changes, regenerate the lock, and run
-   both producer and consumer gates.
-
-Development checkouts may optionally point at adjacent repositories for fast
-iteration, but acceptance uses the copied artifact so CI and packaged source do
-not depend on sibling directory layout.
-
-## Saga 1: foundation and executable contract
-
-1. Add the root `justfile`, tool selectors, `mlplunit.conf`, narrow `.gitignore`,
-   canonical formatter/docstring gate, catalog schema, and repository checks.
-2. Specify module manifests, prefix ownership, semantic versioning, dependency
-   declarations, capability requirements, and lock/provenance format.
-3. Build a minimal pure `result`/error-pipeline library test-first, with examples
-   proving composition and stable failure values.
-4. Build the deterministic vendor installer and a fixture consumer located
-   outside the producer source tree; prove clean install, tamper detection,
-   missing dependency diagnostics, and upgrade behavior.
-
-Exit: `just check` passes from a clean checkout and a fixture app consumes a
-pinned module copy without reading the producer tree at runtime.
-
-## Saga 2: demo-extensions integration
-
-1. Inventory `demo-extensions/lib/native3d` APIs, tests, upstream/native
-   requirements, and application-specific coupling. Freeze a migration map.
-2. Move or reimplement the generic camera, geometry, and app-lifecycle modules
-   here under the `u:n3d_*` public prefix, preserving test coverage.
-3. Install the library into an integration fixture matching the real
-   `demo-extensions` layout and run its native mlplunit contracts without a
-   window or GPU.
-4. In a separately authorized consumer change, replace duplicated library files
-   in `demo-extensions` with the pinned install workflow and run its full gate.
-
-Exit: a committed consumer lock identifies the library revision; camera,
-geometry, and lifecycle behavior is owned here; application semantics remain in
-`demo-extensions`; producer and consumer gates pass.
-
-## Saga 3: representative general-purpose libraries
-
-Add only modules justified by executable applications, in this order:
-
-- CLI argument normalization and validation over public `args()` behavior.
-- Structured result/error combinators with context and recovery pipelines.
-- Sandboxed filesystem/path helpers with explicit roots and bounded reads.
-- Data split/normalization helpers useful to ML demos.
-- MLX/CUDA capability selection and ergonomic facades, with deterministic CPU
-  fallback tests where meaningful and explicit skip/unsupported results where
-  not.
-
-Each addition requires API docs, unit tests, at least one external-style fixture
-consumer, catalog metadata, and negative capability/error tests. Native/GPU
-integration tests are a separate gate from portable tests.
-
-## Saga 4: distribution and upstream decision
-
-Measure the vendored MVP against real consumers, then write
-`docs/upstream-contract.md` for only the gaps that cannot be solved safely
-downstream. Candidate upstream work includes namespaced imports, ordered search
-paths, package manifests, and compiler/interpreter/REPL parity. Do not request a
-registry until two or more consumers demonstrate the versioning and dependency
-semantics it must preserve.
-
-Evaluate distribution options—git subdirectory install, release archive with
-checksums, or eventual registry—against offline reproducibility, sandboxing,
-transitive dependency conflicts, supply-chain integrity, and compiled parity.
-
-Exit: evidence supports either a stable vendoring workflow or a minimal,
-testable upstream proposal; limitations are stated rather than hidden by local
-checkout assumptions.
+1. `text-library` (production): `lib/text/text.mlpl`, prefix `u:text_`,
+   pure core. Test-first: `is_empty`, `trim`, `trim_left`, `trim_right`,
+   `starts_with`, `ends_with`, `contains`, bounded `replace_all`,
+   `pad_left`, `pad_right`, `split_lines`, and character-class tests
+   `is_digit`, `is_letter`, `is_whitespace`. Character-indexed Unicode
+   behavior, total on empty input, and a retirement probe test that pins
+   the absence of native `str_replace`/`str_trim`/`str_starts_with`/
+   `str_contains` so the library can retire when core ships them.
+2. `jsonl-library` (production): `lib/jsonl/jsonl.mlpl`, prefix
+   `u:jsonl_`, capability `fs.read-bounded.v1`. `u:jsonl_parse(text,
+   opts)` splits LF and CRLF lines, skips blank lines by policy, parses
+   each with `parse_json` under caller budgets, and returns
+   `ok(list of records)` or a structured `err` naming the one-based line
+   number; `u:jsonl_read(path, opts)` adds a byte budget and `file_size`
+   check; `u:jsonl_take_first(path, n, opts)` stops after `n` records
+   without parsing the rest. Records that are not JSON objects are
+   diagnosed by line.
+3. `safetensors-contract` (validation): inventory the proven reader in
+   `../demo-ml-utils` read-only (its probes, archived saga steps, tests,
+   and fixtures), freeze `docs/safetensors-header-migration.md` with the
+   exact `u:sth_*` API, budgets, error shapes, fixture provenance, and the
+   boundary that decoding and cataloging remain in `demo-ml-utils`. Record
+   the publish request to `demo-ml-utils` in
+   `docs/demo-ml-utils-requests.md`. Guard the contract with a shell test
+   like `tests/test-native3d-contract`.
+4. `safetensors-library` (production): `lib/safetensors-header/`, prefix
+   `u:sth_`, capability `fs.read-bounded.v1`, implemented against the
+   frozen contract with vendored or regenerated tiny fixtures whose
+   provenance is documented. Tests cover truncation, header budget excess,
+   `file_size` mismatch, u64 maximum, 2^53 precision hazard, malformed and
+   non-object JSON, missing files, and sandbox traversal.
+5. `checkpoint-library` (production): `lib/checkpoint/`, prefix
+   `u:ckpt_`, capabilities `fs.read-bounded.v1` plus a write capability
+   identifier the step defines and documents in the contract. Save a
+   record of named arrays as one `to_native` file per tensor beneath a
+   directory with a JSON index and a size and `sha256` manifest, written
+   atomically; load verifies sizes and hashes under budgets before
+   `parse_native`, and diagnoses missing, extra, or tampered members.
+6. `consumer-evidence` (validation): vendor every new library into an
+   `integration/` consumer fixture at a pinned revision with the existing
+   installer, run the vendored consumers under the test gate, update the
+   README and catalog documentation, and write
+   `docs/requests-response.md` answering the requesting repository item by
+   item with names, versions, prefixes, capabilities, and the revision to
+   pin. Consolidate any remaining host gaps into the per-repository
+   request files.
 
 ## Cross-cutting acceptance gates
 
-- Canonical formatting for every tracked `.mlpl` file.
-- Module-purpose comment and first-expression docstring for every user function.
-- Native mlplunit tests for MLPL behavior; focused Rust tests for any installer
-  or extension code; `just check` as the pre-commit umbrella.
-- Tests for prefix collisions, include cycles/escapes, missing capabilities,
-  malformed manifests, tampered sources, and deterministic diagnostics.
-- Explicit file staging, tracked Agentrail state, narrow ignore rules, and
-  documentation updated in the same step as behavior.
-- No edits to sibling repositories unless a step and the user explicitly
-  authorize that repository as a mutation target.
+- Canonical formatting for every tracked `.mlpl` file, module-purpose
+  comments, and first-expression docstrings; `just check` before every
+  commit and push.
+- Native mlplunit tests for all MLPL behavior, including capability
+  negative and budget-exceeded paths, and deterministic diagnostics.
+- Catalog entries validated by `scripts/validate-catalog`; documentation in
+  `docs/<library>.md` updated in the same step as behavior.
+- Changes needed in sibling repositories are recorded, never applied:
+  `docs/sw-mlpl-requests.md` for core language or builtin gaps,
+  `docs/demo-extensions-requests.md` for native extension gaps, and
+  `docs/demo-ml-utils-requests.md` for the safetensors publish request.
+  These files replace `docs/upstream-contract.md` for those repositories.
+- Explicit file staging, tracked Agentrail state committed with source, and
+  the branch pushed before `agentrail complete`.
 
 ## Non-goals
 
-- Building a network package registry in the first iteration.
-- Treating source splicing as namespace isolation.
-- Moving Rust crates or native kernels into this repository.
-- Hiding host limitations behind shell environment tricks or absolute paths.
-- Generalizing an API before a second credible consumer exists.
+- L5, the bounded arithmetic expression evaluator: the request document
+  says it is math-verifier-specific and likely stays in
+  `../reasoning-from-scratch` until a second numeric-equivalence consumer
+  exists.
+- A tokenizer or anything on the autograd tape (explicitly not requested).
+- Transitive dependency installation, a registry, or namespace isolation.
+- Vendoring `result` into the requesting repository: that is consumer-side
+  work owned there.
+- Deferred, not abandoned, from the archived `mlpl-library-consumption`
+  saga: the `demo-extensions` adoption handoff and the distribution
+  decision. They return as their own saga when authorized.

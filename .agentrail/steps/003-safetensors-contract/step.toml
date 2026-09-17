@@ -1,0 +1,9 @@
+number = 3
+slug = "safetensors-contract"
+status = "pending"
+description = "Freeze the L3 safetensors header reader migration contract without writing li..."
+role = "validation"
+context_files = []
+created_at = "2026-09-16T20:11:21"
+task_type = "contract"
+commits = []

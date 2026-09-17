@@ -1,0 +1,9 @@
+number = 4
+slug = "safetensors-library"
+status = "pending"
+description = "Implement the L3 safetensors header reader library test-first against the fro..."
+role = "production"
+context_files = []
+created_at = "2026-09-16T20:11:21"
+task_type = "library"
+commits = []
