@@ -58,11 +58,15 @@ library code lands.
   contextual errors, error-payload mapping, and deterministic pairing.
 - [`native3d` 0.1.0](docs/native3d.md): orbit camera, picking, validated bulk
   lines/grids, headless transitions, and optional Port-backed lifecycle.
+- [`text` 0.1.0](docs/text.md): total, character-indexed trim, affix and
+  substring tests, bounded replace, padding, line splitting, and ASCII
+  character classes over the core string builtins.
 
-The next extraction is governed by the frozen
-[Native3D migration contract](docs/native3d-migration.md), which separates pure
-camera/geometry and headless transition logic from Port-backed lifecycle and
-application-specific behavior.
+The Native3D extraction is governed by the frozen
+[Native3D migration contract](docs/native3d-migration.md). The libraries
+requested by `../reasoning-from-scratch` are being published in the
+`requested-libraries` saga; changes this work needs in sibling repositories
+are recorded in `docs/<repo>-requests.md` files rather than applied there.
 
 Install a library from an immutable commit into another MLPL repository, then
 verify its committed lock and file hashes:

@@ -1,0 +1,109 @@
+# Native mlplunit contract tests for the reusable text helpers.
+include "lib/text/text.mlpl";
+
+@test {name: "emptiness and affix tests are total and character indexed", tags: ["text", "predicates"]}
+def u:test_text_affixes() {
+  "Verify is_empty, starts_with, ends_with, and contains on Unicode and empty input.";
+  u:assert_eq([u:text_is_empty(""), u:text_is_empty("é")], [1, 0], "is_empty counts characters")?;
+  u:assert_eq(u:text_starts_with("héllo", "hé"), 1, "prefix match")?;
+  u:assert_eq(u:text_starts_with("héllo", "hello"), 0, "prefix mismatch")?;
+  u:assert_eq([u:text_starts_with("", ""), u:text_starts_with("", "a"), u:text_starts_with("a", "")], [1, 0, 1], "empty prefixes and texts")?;
+  u:assert_eq(u:text_starts_with("ab", "abc"), 0, "longer prefix never matches")?;
+  u:assert_eq(u:text_ends_with("héllo", "llo"), 1, "suffix match")?;
+  u:assert_eq([u:text_ends_with("", ""), u:text_ends_with("", "a"), u:text_ends_with("a", ""), u:text_ends_with("ab", "abc")], [1, 0, 1, 0], "empty and long suffixes")?;
+  u:assert_eq(u:text_ends_with("naïve", "ïve"), 1, "suffix is character indexed")?;
+  u:assert_eq([u:text_contains("semigroup", "group"), u:text_contains("abc", "zz"), u:text_contains("", "a"), u:text_contains("abc", "")], [1, 0, 0, 1], "contains including empties")
+}
+
+@test {name: "character classes require a non-empty run of members", tags: ["text", "classes"]}
+def u:test_text_classes() {
+  "Verify digit, letter, and whitespace tests on single characters, runs, and empties.";
+  u:assert_eq([u:text_is_digit("7"), u:text_is_digit("2026"), u:text_is_digit("2a"), u:text_is_digit(""), u:text_is_digit("٣")], [1, 1, 0, 0, 0], "ASCII digits only")?;
+  u:assert_eq([u:text_is_letter("Q"), u:text_is_letter("abcXYZ"), u:text_is_letter("a1"), u:text_is_letter(""), u:text_is_letter("é")], [1, 1, 0, 0, 0], "ASCII letters only")?;
+  u:assert_eq([u:text_is_whitespace(" "), u:text_is_whitespace(" \t\r\n"), u:text_is_whitespace(" x"), u:text_is_whitespace("")], [1, 1, 0, 0], "ASCII whitespace only")?;
+  u:assert_eq(u:text_is_whitespace(decode_bytes([11, 12])), 1, "vertical tab and form feed are whitespace")
+}
+
+@test {name: "trim removes only ASCII whitespace at the edges", tags: ["text", "trim"]}
+def u:test_text_trim() {
+  "Verify trim, trim_left, and trim_right preserve interior and Unicode content.";
+  u:assert_eq(u:text_trim("  \t héllo wörld \r\n"), "héllo wörld", "both edges")?;
+  u:assert_eq(u:text_trim_left("  x  "), "x  ", "left edge only")?;
+  u:assert_eq(u:text_trim_right("  x  "), "  x", "right edge only")?;
+  u:assert_eq([u:text_trim(""), u:text_trim("   "), u:text_trim("x")], ["", "", "x"], "empty, all-space, and untouched")?;
+  u:assert_eq(u:text_trim(decode_bytes([12, 65, 11])), "A", "form feed and vertical tab trim")
+}
+
+@test {name: "replace_all is bounded, left to right, and total on empty needles", tags: ["text", "replace"]}
+def u:test_text_replace_all() {
+  "Verify bounded replacement semantics including Unicode needles and no-op cases.";
+  u:assert_eq(u:text_replace_all("a-b-c", "-", "+", 10), "a+b+c", "replace every occurrence")?;
+  u:assert_eq(u:text_replace_all("a-b-c", "-", "+", 1), "a+b-c", "cap stops after one")?;
+  u:assert_eq(u:text_replace_all("a-b-c", "-", "+", 0), "a-b-c", "zero cap replaces nothing")?;
+  u:assert_eq(u:text_replace_all("aaa", "aa", "b", 5), "ba", "non-overlapping left to right")?;
+  u:assert_eq(u:text_replace_all("héllo", "é", "e", 5), "hello", "Unicode needle")?;
+  u:assert_eq(u:text_replace_all("héllo", "l", "ł", 5), "héłło", "Unicode replacement")?;
+  u:assert_eq(u:text_replace_all("abc", "", "x", 5), "abc", "empty needle is a no-op")?;
+  u:assert_eq(u:text_replace_all("", "a", "x", 5), "", "empty text stays empty")?;
+  u:assert_eq(u:text_replace_all("abc", "b", "", 5), "ac", "empty replacement deletes")?;
+  u:assert_eq(u:text_replace_all("xx", "x", "xx", 5), "xxxx", "replacement containing needle is not rescanned")
+}
+
+@test {name: "padding grows to the width by characters and never truncates", tags: ["text", "pad"]}
+def u:test_text_pad() {
+  "Verify pad_left and pad_right with ASCII and Unicode pads.";
+  u:assert_eq(u:text_pad_left("7", 3, "0"), "007", "left pad digits")?;
+  u:assert_eq(u:text_pad_right("ab", 4, "."), "ab..", "right pad")?;
+  u:assert_eq(u:text_pad_left("é", 3, "ü"), "üüé", "Unicode pad counts characters")?;
+  u:assert_eq(u:text_pad_left("long", 2, "0"), "long", "wider text is untouched")?;
+  u:assert_eq(u:text_pad_left("a", 3, ""), "a", "empty pad returns text")?;
+  u:assert_eq(u:text_pad_right("a", 3, "xy"), "axx", "only the first pad character is used")?;
+  u:assert_eq(u:text_pad_left("", 2, "-"), "--", "empty text pads to width")
+}
+
+@test {name: "split_lines handles LF, CRLF, blank lines, and terminators", tags: ["text", "lines"]}
+def u:test_text_split_lines() {
+  "Verify line splitting drops exactly one final terminator and keeps interior blanks.";
+  u:assert_eq(u:text_split_lines("a\nb\n"), ["a", "b"], "LF with terminator")?;
+  u:assert_eq(u:text_split_lines("a\r\nb"), ["a", "b"], "CRLF without terminator")?;
+  u:assert_eq(u:text_split_lines("a\n\nb\r\n"), ["a", "", "b"], "interior blank line kept")?;
+  u:assert_eq(u:text_split_lines("\n"), [""], "one empty terminated line")?;
+  u:assert_eq(u:text_split_lines("a\n\n"), ["a", ""], "only one terminator is dropped")?;
+  u:assert_eq(len(u:text_split_lines("")), 0, "empty text has no lines")?;
+  u:assert_eq(u:text_split_lines("héllo"), ["héllo"], "single unterminated line")
+}
+
+@test {name: "retirement probe pins the absence of native string helpers", tags: ["text", "retirement"]}
+def u:test_text_retirement_probe() {
+  "Fail loudly once core ships str_replace, str_trim, str_starts_with, or str_contains so this library can retire.";
+  replace_probe = try {
+    str_replace("abc", "b", "x");
+    "present"
+  } catch e {
+    e.message
+  };
+  trim_probe = try {
+    str_trim(" a ");
+    "present"
+  } catch e {
+    e.message
+  };
+  starts_probe = try {
+    str_starts_with("abc", "a");
+    "present"
+  } catch e {
+    e.message
+  };
+  contains_probe = try {
+    str_contains("abc", "b");
+    "present"
+  } catch e {
+    e.message
+  };
+  u:assert_true(u:text_contains(replace_probe, "unknown function"), "str_replace is still absent; retire replace_all when this fails")?;
+  u:assert_true(u:text_contains(trim_probe, "unknown function"), "str_trim is still absent; retire trim when this fails")?;
+  u:assert_true(u:text_contains(starts_probe, "unknown function"), "str_starts_with is still absent; retire starts_with when this fails")?;
+  u:assert_true(u:text_contains(contains_probe, "unknown function"), "str_contains is still absent; retire contains when this fails")
+}
+
+u:run_registered_tests()

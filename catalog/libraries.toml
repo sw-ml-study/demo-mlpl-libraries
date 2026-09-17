@@ -22,3 +22,14 @@ license = "MIT"
 source_files = ["lib/native3d/camera.mlpl", "lib/native3d/geometry.mlpl", "lib/native3d/app.mlpl"]
 capabilities = ["core.include.v1", "extension.port.v1"]
 dependencies = []
+
+[[libraries]]
+name = "text"
+version = "0.1.0"
+entry = "lib/text/text.mlpl"
+prefix = "u:text_"
+documentation = "docs/text.md"
+license = "MIT"
+source_files = ["lib/text/text.mlpl"]
+capabilities = ["core.include.v1"]
+dependencies = []

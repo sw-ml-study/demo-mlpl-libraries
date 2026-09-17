@@ -1,0 +1,48 @@
+# Requests to `../sw-mlpl` (core language and builtins)
+
+This repository never edits `../sw-mlpl`. Gaps found while publishing
+libraries are recorded here with the workaround in use, so upstream can
+decide whether and when to ship them. Each entry names the library that hit
+the gap and the test that would notice a change.
+
+Status as of 2026-09-16: nothing blocks a published library. All entries
+are conveniences or retirement triggers.
+
+## S1. Native string helpers (`str_replace`, `str_trim`, `str_starts_with`, `str_contains`)
+
+- Found by: `text` 0.1.0.
+- Workaround: `u:text_replace_all`, `u:text_trim`, `u:text_starts_with`,
+  `u:text_contains` over `str_find`, `str_slice`, and `str_len`.
+- Retirement trigger: the `retirement probe` test in `tests/test_text.mlpl`
+  fails as soon as any of the four names becomes a builtin, mirroring
+  `../reasoning-from-scratch/probes/str-helpers.mlpl`.
+- Priority: low. The library form is a few lines each and character exact.
+
+## S2. Code-point access for a character
+
+- Found by: `text` 0.1.0 character classes.
+- Gap: no builtin returns the Unicode scalar value of a character (a
+  `char_code`/`code_point` form). `tokenize_bytes` yields UTF-8 bytes, which
+  is exact but forces a hand-written decoder for anything beyond ASCII.
+- Workaround: `u:text_is_digit`, `u:text_is_letter`, and
+  `u:text_is_whitespace` are documented as ASCII classes; non-ASCII input
+  returns `0` rather than erring.
+- Priority: low until a consumer needs Unicode letter classes.
+
+## S3. Incremental string-list construction (`list_append`, `list_concat`)
+
+- Found by: `text` 0.1.0 (`u:text_split_lines`), and expected by the JSONL
+  reader and checkpoint index code in later steps.
+- Gap: `concat` rejects string lists and no `list_append`/`list_concat`
+  builtin exists (`docs/future-sagas-queue.md` upstream already lists it).
+  A library can return only string lists that `str_split` produces, or must
+  encode intermediate results as joined strings with a sentinel separator.
+- Workaround: `u:text_split_lines` normalizes CRLF to LF and strips one
+  trailing terminator before a single `str_split`.
+- Priority: medium. This is the first gap likely to shape a library API
+  (record-of-results instead of list-of-records) rather than merely its
+  implementation.
+
+## Not requested
+
+- `chars(s)`: `str_split(s, "")` already yields the character list.

@@ -1,0 +1,22 @@
+# Normalize a small answer sheet: trim, split lines, and pad labels for display.
+include "../lib/text/text.mlpl";
+
+def u:example_row(line) {
+  "Render one trimmed answer line as a padded label with a digit check.";
+  cleaned = u:text_trim(line);
+  digits = if u:text_is_digit(cleaned) {
+    "digits"
+  } else {
+    "text"
+  };
+  str_concat(u:text_pad_right(cleaned, 8, "."), digits)
+}
+
+sheet = "  42 \r\n\tseven\n\n007\n";
+lines = u:text_split_lines(sheet);
+index = 0;
+while lt(index, len(lines)) {
+  print(u:example_row(unwrap(list_get(lines, index))));
+  index = index + 1
+};
+u:text_replace_all(sheet, "\r\n", "\n", str_len(sheet))

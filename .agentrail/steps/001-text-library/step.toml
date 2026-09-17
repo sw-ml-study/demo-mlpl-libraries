@@ -1,6 +1,6 @@
 number = 1
 slug = "text-library"
-status = "pending"
+status = "in-progress"
 description = "Implement the L1 text helper library test-first under docs/library-contract.m..."
 role = "production"
 context_files = []
