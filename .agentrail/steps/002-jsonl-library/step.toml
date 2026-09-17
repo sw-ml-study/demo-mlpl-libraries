@@ -1,9 +1,10 @@
 number = 2
 slug = "jsonl-library"
-status = "in-progress"
+status = "completed"
 description = "Implement the L2 JSONL reader library test-first under docs/library-contract...."
 role = "production"
 context_files = []
 created_at = "2026-09-16T20:11:21"
+completed_at = "2026-09-17T10:24:36"
 task_type = "library"
-commits = []
+commits = ["d0931606b1bf361fc49d1f949f914841d825d80e"]

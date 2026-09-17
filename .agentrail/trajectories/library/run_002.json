@@ -1,0 +1,11 @@
+{
+  "task_type": "library",
+  "state": {
+    "number": 2,
+    "step": "jsonl-library"
+  },
+  "action": "Probed file sandbox (root is --source-dir, so fixtures are repo-relative), parse_json budgets, and concat cost before coding; record-set shape instead of list; guarded empty arrays against the broadcast panic; list literals cannot mix strings and numbers; product operator never short-circuits.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-09-17T10:24:36"
+}
