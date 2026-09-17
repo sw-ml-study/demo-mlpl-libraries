@@ -1,0 +1,11 @@
+{
+  "task_type": "library",
+  "state": {
+    "number": 1,
+    "step": "text-library"
+  },
+  "action": "Probed builtin behaviour with scratch scripts before coding; TDD with native mlplunit (test file must end with u:run_registered_tests()); mlpl-fmt in write mode; product operator does not short-circuit so loop guards use if/break; examples run with --source-dir . from the repo root.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-09-16T23:11:59"
+}

@@ -1,9 +1,10 @@
 number = 1
 slug = "text-library"
-status = "in-progress"
+status = "completed"
 description = "Implement the L1 text helper library test-first under docs/library-contract.m..."
 role = "production"
 context_files = []
 created_at = "2026-09-16T20:11:21"
+completed_at = "2026-09-16T23:11:59"
 task_type = "library"
-commits = []
+commits = ["ddb03ba284102d9c0e58c66783d943323f369389"]
