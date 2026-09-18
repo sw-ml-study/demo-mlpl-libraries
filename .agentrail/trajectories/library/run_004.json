@@ -1,0 +1,11 @@
+{
+  "task_type": "library",
+  "state": {
+    "number": 5,
+    "step": "checkpoint-library"
+  },
+  "action": "Probed write_atomic/make_dir/parse_native limits and found sha256, list_dir, remove_file, bit ops absent; vectorized Adler-32 with mod and reduce(:add) verified against reference values; measured tagged to_json/parse_json round trip to assemble records with computed keys; tests write under gitignored tmp/ and construct broken checkpoints by overwriting control files since files cannot be deleted.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-09-18T09:13:21"
+}
