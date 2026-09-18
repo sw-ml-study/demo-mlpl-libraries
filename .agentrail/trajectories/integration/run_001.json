@@ -1,0 +1,11 @@
+{
+  "task_type": "integration",
+  "state": {
+    "number": 7,
+    "step": "consumer-evidence"
+  },
+  "action": "One consumer fixture per library because the installer locks one library per consumer; fixtures copied to scratch before running so the checkpoint app writes outside the repo; expected outputs asserted literally.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-09-18T10:46:48"
+}
