@@ -5,9 +5,9 @@ libraries are recorded here with the workaround in use, so upstream can
 decide whether and when to ship them. Each entry names the library that hit
 the gap and the test that would notice a change.
 
-Status as of 2026-09-17: nothing blocks a published library. S4 is a
-crash that libraries must guard against; the rest are conveniences or
-retirement triggers.
+Status as of 2026-09-18: nothing blocks a published library. S4 is a
+crash that libraries must guard against; S6 records a home decision
+(extension, not core); the rest are conveniences or retirement triggers.
 
 ## S1. Native string helpers (`str_replace`, `str_trim`, `str_starts_with`, `str_contains`)
 
@@ -69,20 +69,24 @@ retirement triggers.
   builds a record from a key list and a value list, would let a library
   return fully parsed collections.
 
-## S6. A `sha256` builtin over byte arrays and strings
+## S6. SHA-256: home decided, nothing requested from core
 
 - Found by: `checkpoint` 0.1.0. The plan asked for a SHA-256 manifest;
-  `sha256` is mentioned in upstream docs but is not a builtin in the
+  `sha256` appears in upstream docs but is not a builtin in the
   interpreter selected here (`unknown function: sha256`), and there are
   no bit operations to implement it in MLPL at usable speed.
-- Workaround: the manifest records a standard Adler-32 computed exactly
-  with vectorized `mod` and `reduce(:add, ...)` (about 0.2 s per 10 MB),
-  under a field named `adler32` so a `sha256` field can be added without
-  breaking consumers. Adler-32 detects corruption but not tampering.
-- Priority: medium. Any checkpoint or download verifier wants a
-  cryptographic digest; a builtin is the natural home because it is a
-  pure function over bytes that every consumer needs, and the same request
-  is mirrored to `../demo-extensions` (E1) as a fallback.
+- Decision (2026-09-18): the digest is a pure function over bytes with no
+  autograd or device role, so under the feature-homes rule it is a Rust
+  extension. The work order is `docs/demo-extensions-requests.md` E1
+  (`digest:sha256`, `digest:sha256_text`, `digest:sha256_file`,
+  `digest:sha256_verify`). Core is asked for nothing; if upstream ever
+  ships a `sha256` builtin, the extension facade can alias it.
+- Workaround until E1 ships: the manifest records a standard Adler-32
+  computed exactly with vectorized `mod` and `reduce(:add, ...)` (about
+  0.2 s per 10 MB), under a field named `adler32` so a `sha256` field can
+  be added without breaking consumers. Adler-32 detects corruption but not
+  tampering.
+- Priority: none here; tracked as E1.
 
 ## S7. Directory listing and file removal (`list_dir`, `remove_file`)
 

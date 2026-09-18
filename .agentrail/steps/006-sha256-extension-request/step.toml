@@ -1,0 +1,9 @@
+number = 6
+slug = "sha256-extension-request"
+status = "in-progress"
+description = "Document missing SHA-256 support as a first-class feature request to ../demo-..."
+role = "validation"
+context_files = []
+created_at = "2026-09-18T10:13:23"
+task_type = "contract"
+commits = []

@@ -71,10 +71,10 @@ Errors are `err({kind, cause, path, member})`:
 
 - The checksum is Adler-32, not SHA-256, because this interpreter build has
   no hashing builtin and no bit operations. Adler-32 detects corruption and
-  truncation reliably but is not tamper-resistant; the manifest field is
-  named `adler32` so a `sha256` field can be added compatibly once a
-  builtin or extension exists (see `docs/sw-mlpl-requests.md` S6 and
-  `docs/demo-extensions-requests.md` E1).
+  truncation reliably but is not tamper-resistant. SHA-256 is requested as
+  a Rust extension in `docs/demo-extensions-requests.md` E1; when it
+  ships, `checkpoint` 0.2.0 will write a `sha256` field beside `adler32`
+  and verify whichever fields a manifest carries.
 - Files present in the directory but absent from the index are ignored,
   and a re-save with fewer members leaves the stale files in place, since
   there is no directory listing or file removal builtin (S7).
