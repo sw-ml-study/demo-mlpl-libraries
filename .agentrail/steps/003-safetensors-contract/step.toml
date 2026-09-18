@@ -1,6 +1,6 @@
 number = 3
 slug = "safetensors-contract"
-status = "pending"
+status = "in-progress"
 description = "Freeze the L3 safetensors header reader migration contract without writing li..."
 role = "validation"
 context_files = []

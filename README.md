@@ -65,7 +65,10 @@ library code lands.
   line diagnostics, a bounded preview, and on-demand record access.
 
 The Native3D extraction is governed by the frozen
-[Native3D migration contract](docs/native3d-migration.md). The libraries
+[Native3D migration contract](docs/native3d-migration.md), and the
+safetensors header reader by the frozen
+[safetensors header migration contract](docs/safetensors-header-migration.md),
+which keeps tensor decoding and cataloging in `../demo-ml-utils`. The libraries
 requested by `../reasoning-from-scratch` are being published in the
 `requested-libraries` saga; changes this work needs in sibling repositories
 are recorded in `docs/<repo>-requests.md` files rather than applied there.
