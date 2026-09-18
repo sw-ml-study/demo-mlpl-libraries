@@ -1,9 +1,10 @@
 number = 8
 slug = "upstream-s4-fixed"
-status = "in-progress"
+status = "completed"
 description = "Record that upstream sw-mlpl fixed the S4 empty-array broadcast crash (commit..."
 role = "validation"
 context_files = []
 created_at = "2026-09-18T12:26:33"
+completed_at = "2026-09-18T13:22:27"
 task_type = "contract"
-commits = []
+commits = ["09246e8662b07f2cb0a0d8781104806b47f08f07"]

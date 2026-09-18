@@ -1,0 +1,11 @@
+{
+  "task_type": "contract",
+  "state": {
+    "number": 8,
+    "step": "upstream-s4-fixed"
+  },
+  "action": "Probed each named builtin with a try/catch helper that distinguishes absent from present-but-errored rather than assuming the upstream report covered our items; agentrail add for a maintenance step on a closed saga; declined to edit lib/ to avoid staleness against the committed consumer locks.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-09-18T13:22:27"
+}
