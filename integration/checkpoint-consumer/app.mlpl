@@ -1,0 +1,12 @@
+# Consumer of the vendored checkpoint library: save, verify, and reload a parameter record.
+include "vendor/swml/lib/checkpoint/checkpoint.mlpl";
+
+params = {w: reshape(range(6) * 0.5, [2, 3]), b: [1, 2]};
+u:ckpt_save("tmp/run", params, {})?;
+verified = u:ckpt_verify("tmp/run", {})?;
+restored = u:ckpt_load("tmp/run", {})?;
+if equal(restored, params) * eq(verified.count, 2) {
+  ok(verified.members)
+} else {
+  err("vendored checkpoint mismatch")
+}

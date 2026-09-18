@@ -1,0 +1,11 @@
+schema_version = 1
+repository = "git@github.com:sw-ml-study/demo-mlpl-libraries.git"
+revision = "f3244ac79b3b2cd4ed43657d450bdcba0905fc5b"
+[[libraries]]
+name = "jsonl"
+version = "0.1.0"
+entry = "lib/jsonl/jsonl.mlpl"
+manifest_sha256 = "673baf5efee2b6763361505ba665a7256b81f0266bcb04d7662633a89957e3b1"
+[[libraries.files]]
+path = "lib/jsonl/jsonl.mlpl"
+sha256 = "740d3624316dfbaad7cfc2df231adf143d5cd27e81fd39329b9d9d2ef39f22be"

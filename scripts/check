@@ -1,13 +1,14 @@
 #!/bin/sh
 set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-sh -n "$repo_root"/scripts/* "$repo_root"/tests/test-foundation "$repo_root"/tests/test-library-contract "$repo_root"/tests/test-vendored-consumer "$repo_root"/tests/test-native3d-contract "$repo_root"/tests/test-native3d-vendored "$repo_root"/tests/test-safetensors-contract
+sh -n "$repo_root"/scripts/* "$repo_root"/tests/test-foundation "$repo_root"/tests/test-library-contract "$repo_root"/tests/test-vendored-consumer "$repo_root"/tests/test-native3d-contract "$repo_root"/tests/test-native3d-vendored "$repo_root"/tests/test-safetensors-contract "$repo_root"/tests/test-requested-vendored
 "$repo_root/tests/test-foundation"
 "$repo_root/tests/test-library-contract"
 "$repo_root/tests/test-vendored-consumer"
 "$repo_root/tests/test-native3d-contract"
 "$repo_root/tests/test-native3d-vendored"
 "$repo_root/tests/test-safetensors-contract"
+"$repo_root/tests/test-requested-vendored"
 "$repo_root/scripts/check-gitignore"
 "$repo_root/scripts/check-catalog"
 "$repo_root/scripts/check-mlpl-style"

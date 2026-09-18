@@ -79,6 +79,14 @@ requested by `../reasoning-from-scratch` are being published in the
 `requested-libraries` saga; changes this work needs in sibling repositories
 are recorded in `docs/<repo>-requests.md` files rather than applied there.
 
+Each library has a committed consumer fixture under `integration/`: the
+vendored sources, the generated `swml.lock.toml` pinned to a full revision,
+and a small application that runs only against `vendor/swml/`. The
+pre-commit gate re-verifies every lock and runs every fixture, so the
+repository proves consumption on each commit. The answers to the requesting
+repository, with the exact revision to pin, are in
+[docs/requests-response.md](docs/requests-response.md).
+
 Install a library from an immutable commit into another MLPL repository, then
 verify its committed lock and file hashes:
 

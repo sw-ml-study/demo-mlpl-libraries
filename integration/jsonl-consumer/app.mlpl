@@ -1,0 +1,10 @@
+# Consumer of the vendored JSON Lines reader: read a dataset and access one record.
+include "vendor/swml/lib/jsonl/jsonl.mlpl";
+
+records = u:jsonl_read("data/problems.jsonl", {max_bytes: 4096})?;
+second = u:jsonl_get(records, 1)?;
+if eq(u:jsonl_count(records), 2) * eq(unwrap(u:jsonl_line_number(records, 1)), 2) {
+  ok(second.problem)
+} else {
+  err("vendored jsonl mismatch")
+}

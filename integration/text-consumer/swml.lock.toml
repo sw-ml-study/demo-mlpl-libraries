@@ -1,0 +1,11 @@
+schema_version = 1
+repository = "git@github.com:sw-ml-study/demo-mlpl-libraries.git"
+revision = "f3244ac79b3b2cd4ed43657d450bdcba0905fc5b"
+[[libraries]]
+name = "text"
+version = "0.1.0"
+entry = "lib/text/text.mlpl"
+manifest_sha256 = "8b62362cd1737a9896dbac1394f1aa18beb7cbb12415bf90652ac053ab88971e"
+[[libraries.files]]
+path = "lib/text/text.mlpl"
+sha256 = "6cdafd08019f0469d14da0009f47aac1d8f3730d0e4b11bc09bcf21187e8de4e"

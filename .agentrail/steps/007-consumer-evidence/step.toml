@@ -1,6 +1,6 @@
 number = 7
 slug = "consumer-evidence"
-status = "pending"
+status = "in-progress"
 description = "Produce executable consumer evidence and answer the requesting repository. Fo..."
 role = "validation"
 context_files = []

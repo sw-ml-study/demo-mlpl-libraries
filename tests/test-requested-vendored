@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/requested-vendor-test.XXXXXX"); trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+mlpl=$("$repo_root/scripts/select-mlpl")
+run_consumer() {
+    library=$1; expected=$2
+    fixture=$repo_root/integration/$library-consumer
+    consumer=$scratch/$library; cp -R "$fixture" "$consumer"
+    revision=$(sed -n 's/^revision = "\([0-9a-f]\{40\}\)"$/\1/p' "$consumer/swml.lock.toml")
+    [ -n "$revision" ] || { echo "$library lock has no full revision" >&2; exit 1; }
+    git -C "$repo_root" cat-file -e "$revision^{commit}" || { echo "$library lock pins an unknown revision $revision" >&2; exit 1; }
+    git -C "$repo_root" show "$revision:catalog/libraries.toml" | grep -q "^name = \"$library\"$" || { echo "$library is not cataloged at $revision" >&2; exit 1; }
+    "$repo_root/scripts/install-library" --check --library "$library" --dest "$consumer" >/dev/null
+    output=$(cd "$consumer" && "$mlpl" --source-dir . -f app.mlpl)
+    [ "$output" = "$expected" ] || { echo "unexpected $library consumer output: $output" >&2; exit 1; }
+}
+run_consumer text 'Ok(alpha..)'
+run_consumer jsonl 'Ok(q)'
+run_consumer safetensors-header 'Ok(["tensor_a", "tensor_b", "tensor_c"])'
+run_consumer checkpoint 'Ok(["b", "w"])'
+echo "PASS vendored consumers of the requested libraries"

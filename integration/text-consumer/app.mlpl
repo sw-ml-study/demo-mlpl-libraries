@@ -1,0 +1,10 @@
+# Consumer of the vendored text library: split, trim, pad, and test a label.
+include "vendor/swml/lib/text/text.mlpl";
+
+lines = u:text_split_lines("  alpha \r\nbeta\n");
+label = u:text_pad_right(u:text_trim(unwrap(list_get(lines, 0))), 7, ".");
+if u:text_starts_with(label, "alpha") * eq(list_len(lines), 2) * u:text_is_letter("beta") {
+  ok(label)
+} else {
+  err("vendored text mismatch")
+}

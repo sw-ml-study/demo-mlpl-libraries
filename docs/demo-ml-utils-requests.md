@@ -3,16 +3,17 @@
 This repository never edits `../demo-ml-utils`. Requests are recorded here
 so that repository can act on them in its own sagas.
 
-Status as of 2026-09-17: one request, not yet actionable because the
-library it names is not published.
+Status as of 2026-09-18: one request, now actionable. `safetensors-header`
+0.1.0 is cataloged at revision
+`f3244ac79b3b2cd4ed43657d450bdcba0905fc5b` with a committed consumer
+fixture under `integration/safetensors-header-consumer/`.
 
 ## M1. Adopt the `safetensors-header` library by pinned revision
 
-- What: once `safetensors-header` 0.1.0 is cataloged here (saga
-  `requested-libraries`, step 004) and its revision is recorded in
-  `docs/requests-response.md`, vendor it with
+- What: vendor it with
   `scripts/install-library --install --library safetensors-header --dest
-  ../demo-ml-utils --revision <sha>` and replace the header-reading half of
+  ../demo-ml-utils --revision f3244ac79b3b2cd4ed43657d450bdcba0905fc5b`
+  and replace the header-reading half of
   `src/formats/safetensors_header.mlpl` and the schema walk in
   `src/formats/safetensors_catalog.mlpl` with `u:sth_inspect` and
   `u:sth_tensor`.

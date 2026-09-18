@@ -1,0 +1,403 @@
+# Per-tensor MLPB checkpoint directories: atomic member files, a JSON index, and a size and Adler-32 manifest.
+def u:ckpt_option(opts, name, fallback) {
+  "Return the named option from opts or fallback when the field is absent.";
+  if has_field(opts, name) {
+    unwrap(record_get(opts, name))
+  } else {
+    fallback
+  }
+}
+
+def u:ckpt_budgets(opts) {
+  "Resolve the member, index, and byte budgets from opts with documented defaults.";
+  {
+    max_members: u:ckpt_option(opts, "max_members", 4096),
+    max_index_bytes: u:ckpt_option(opts, "max_index_bytes", 65536),
+    max_member_bytes: u:ckpt_option(opts, "max_member_bytes", 134217728),
+    max_total_bytes: u:ckpt_option(opts, "max_total_bytes", 1073741824)
+  }
+}
+
+def u:ckpt_error(kind, cause, path, member) {
+  "Build the structured error every checkpoint function returns.";
+  err({kind: kind, cause: cause, path: path, member: member})
+}
+
+def u:ckpt_hex8(value) {
+  "Render a non-negative integer below 2^32 as eight lowercase hexadecimal digits.";
+  digits = "0123456789abcdef";
+  text = "";
+  remaining = value;
+  index = 0;
+  while lt(index, 8) {
+    text = str_concat(str_slice(digits, mod(remaining, 16), 1), text);
+    remaining = floor(remaining / 16);
+    index = index + 1
+  };
+  text
+}
+
+def u:ckpt_adler32(bytes) {
+  "Return the standard Adler-32 checksum of a byte array as eight hex digits, computed exactly with array ops.";
+  count = tally(bytes);
+  if eq(count, 0) {
+    "00000001"
+  } else {
+    low = mod(1 + reduce(:add, bytes), 65521);
+    weights = mod(count - range(count), 65521);
+    high = mod(count + reduce(:add, weights * bytes), 65521);
+    u:ckpt_hex8(high * 65536 + low)
+  }
+}
+
+def u:ckpt_valid_name(name) {
+  "Return 1 when name is a safe member name: 1 to 128 characters of letters, digits, underscore, hyphen, or dot, not starting with a dot.";
+  length = str_len(name);
+  if eq(length, 0) + gt(length, 128) {
+    0
+  } else {
+    if str_eq(str_slice(name, 0, 1), ".") {
+      0
+    } else {
+      members = str_split(name, "");
+      index = 0;
+      valid = 1;
+      while valid * lt(index, length) {
+        valid = 1 - eq(str_find("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.", unwrap(list_get(members, index))), -1);
+        index = index + 1
+      };
+      valid
+    }
+  }
+}
+
+def u:ckpt_member_path(dir, name) {
+  "Return the path of one member file beneath dir.";
+  str_concat(str_concat(str_concat(dir, "/"), name), ".mlpb")
+}
+
+def u:ckpt_index_path(dir) {
+  "Return the path of the index file beneath dir.";
+  str_concat(dir, "/index.json")
+}
+
+def u:ckpt_manifest_path(dir) {
+  "Return the path of the manifest file beneath dir.";
+  str_concat(dir, "/manifest.json")
+}
+
+def u:ckpt_is_count(value) {
+  "Return 1 when value is a scalar non-negative exact integer.";
+  if eq(rank(value), 0) {
+    eq(value, floor(value)) * (1 - lt(value, 0)) * (1 - gt(value, 9007199254740991))
+  } else {
+    0
+  }
+}
+
+def u:ckpt_save(dir, record, opts) {
+  "Write every array field of record as one atomic MLPB file beneath dir, then the manifest, then the index.";
+  budgets = u:ckpt_budgets(opts);
+  if 1 - str_eq(type_of(record), "record") {
+    u:ckpt_error("ckpt-input", "checkpoint value must be a record of arrays", dir, "")
+  } else {
+    names = record_keys(record);
+    count = list_len(names);
+    if gt(count, budgets.max_members) {
+      u:ckpt_error("ckpt-budget", "member count exceeds max_members", dir, "")
+    } else {
+      created = make_dir(dir);
+      if is_err(created) {
+        u:ckpt_error("ckpt-write", err_message(created), dir, "")
+      } else {
+        index = 0;
+        total = 0;
+        manifest = "{";
+        failure = ok(0);
+        while lt(index, count) * is_ok(failure) {
+          name = unwrap(list_get(names, index));
+          value = unwrap(record_get(record, name));
+          if 1 - u:ckpt_valid_name(name) {
+            failure = u:ckpt_error("ckpt-input", "member name is not a safe file name", dir, name)
+          } else {
+            if 1 - str_eq(type_of(value), "array") {
+              failure = u:ckpt_error("ckpt-input", str_concat("member is not an array but a ", type_of(value)), dir, name)
+            } else {
+              encoded = to_native(value);
+              if is_err(encoded) {
+                failure = u:ckpt_error("ckpt-encode", err_message(encoded), dir, name)
+              } else {
+                bytes = tally(unwrap(encoded));
+                if gt(bytes, budgets.max_member_bytes) {
+                  failure = u:ckpt_error("ckpt-budget", "member exceeds max_member_bytes", dir, name)
+                } else {
+                  if gt(total + bytes, budgets.max_total_bytes) {
+                    failure = u:ckpt_error("ckpt-budget", "checkpoint exceeds max_total_bytes", dir, name)
+                  } else {
+                    written = write_atomic(u:ckpt_member_path(dir, name), unwrap(encoded));
+                    if is_err(written) {
+                      failure = u:ckpt_error("ckpt-write", err_message(written), u:ckpt_member_path(dir, name), name)
+                    } else {
+                      separator = if gt(index, 0) {
+                        ","
+                      } else {
+                        ""
+                      };
+                      entry = str_concat(str_concat(str_concat(str_concat(unwrap(to_json(name)), ":{\"adler32\":\""), u:ckpt_adler32(unwrap(encoded))), "\",\"bytes\":"), to_string(bytes));
+                      manifest = str_concat(str_concat(str_concat(manifest, separator), entry), "}");
+                      total = total + bytes
+                    }
+                  }
+                }
+              }
+            }
+          };
+          index = index + 1
+        };
+        if is_err(failure) {
+          failure
+        } else {
+          manifest_written = write_atomic(u:ckpt_manifest_path(dir), str_concat(manifest, "}"));
+          if is_err(manifest_written) {
+            u:ckpt_error("ckpt-write", err_message(manifest_written), u:ckpt_manifest_path(dir), "")
+          } else {
+            index_text = unwrap(to_json({format: "mlpl-checkpoint", version: 1, count: count, members: names}));
+            index_written = write_atomic(u:ckpt_index_path(dir), index_text);
+            if is_err(index_written) {
+              u:ckpt_error("ckpt-write", err_message(index_written), u:ckpt_index_path(dir), "")
+            } else {
+              ok({dir: dir, count: count, members: names, bytes: total})
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+def u:ckpt_read_json(path, kind, budgets) {
+  "Read one JSON control file under max_index_bytes and return its parsed value or an error of the given kind.";
+  size = file_size(path);
+  if is_err(size) {
+    u:ckpt_error("ckpt-read", err_message(size), path, "")
+  } else {
+    if gt(unwrap(size), budgets.max_index_bytes) {
+      u:ckpt_error("ckpt-budget", "control file exceeds max_index_bytes", path, "")
+    } else {
+      bytes = read_bytes(path, 0, unwrap(size));
+      if is_err(bytes) {
+        u:ckpt_error("ckpt-read", err_message(bytes), path, "")
+      } else {
+        text = decode_bytes(unwrap(bytes));
+        if 1 - equal(tokenize_bytes(text), unwrap(bytes)) {
+          u:ckpt_error(kind, "control file is not valid UTF-8", path, "")
+        } else {
+          parsed = parse_json(text, {max_depth: 4, max_bytes: budgets.max_index_bytes, max_elements: budgets.max_members * 4 + 16});
+          if is_err(parsed) {
+            u:ckpt_error(kind, err_message(parsed), path, "")
+          } else {
+            if 1 - str_eq(type_of(unwrap(parsed)), "record") {
+              u:ckpt_error(kind, "control file root must be a JSON object", path, "")
+            } else {
+              parsed
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+def u:ckpt_member_list(index_record, path) {
+  "Return the index members as a string list, accepting the empty array that an empty list decodes to.";
+  if 1 - has_field(index_record, "members") {
+    u:ckpt_error("ckpt-index", "index lacks members", path, "")
+  } else {
+    members = unwrap(record_get(index_record, "members"));
+    if str_eq(type_of(members), "string-list") {
+      ok(members)
+    } else {
+      if str_eq(type_of(members), "array") * eq(tally(members), 0) * eq(rank(members), 1) {
+        ok(str_split("", ""))
+      } else {
+        u:ckpt_error("ckpt-index", "index members must be a list of names", path, "")
+      }
+    }
+  }
+}
+
+def u:ckpt_open(dir, opts) {
+  "Read and cross-check the index and manifest of a checkpoint directory without touching member files.";
+  budgets = u:ckpt_budgets(opts);
+  index_path = u:ckpt_index_path(dir);
+  manifest_path = u:ckpt_manifest_path(dir);
+  index_record = u:ckpt_read_json(index_path, "ckpt-index", budgets)?;
+  if (1 - has_field(index_record, "format")) + (1 - has_field(index_record, "version")) + (1 - has_field(index_record, "count")) {
+    u:ckpt_error("ckpt-index", "index must carry format, version, count, and members", index_path, "")
+  } else {
+    format = unwrap(record_get(index_record, "format"));
+    version = unwrap(record_get(index_record, "version"));
+    count = unwrap(record_get(index_record, "count"));
+    if (1 - str_eq(type_of(format), "string")) + (1 - str_eq(type_of(version), "array")) + (1 - str_eq(type_of(count), "array")) {
+      u:ckpt_error("ckpt-index", "index fields have the wrong types", index_path, "")
+    } else {
+      if (1 - str_eq(format, "mlpl-checkpoint")) + (1 - equal(version, 1)) {
+        u:ckpt_error("ckpt-index", "unsupported checkpoint format or version", index_path, "")
+      } else {
+        members = u:ckpt_member_list(index_record, index_path)?;
+        if (1 - u:ckpt_is_count(count)) + (1 - eq(count, list_len(members))) {
+          u:ckpt_error("ckpt-index", "index count disagrees with its member list", index_path, "")
+        } else {
+          if gt(count, budgets.max_members) {
+            u:ckpt_error("ckpt-budget", "member count exceeds max_members", index_path, "")
+          } else {
+            manifest = u:ckpt_read_json(manifest_path, "ckpt-manifest", budgets)?;
+            if 1 - equal(record_keys(manifest), members) {
+              u:ckpt_error("ckpt-index", "index members and manifest entries differ or are not sorted", index_path, "")
+            } else {
+              position = 0;
+              total = 0;
+              failure = ok(0);
+              while lt(position, count) * is_ok(failure) {
+                name = unwrap(list_get(members, position));
+                entry = unwrap(record_get(manifest, name));
+                if 1 - u:ckpt_valid_name(name) {
+                  failure = u:ckpt_error("ckpt-index", "member name is not a safe file name", index_path, name)
+                } else {
+                  if (1 - str_eq(type_of(entry), "record")) + (1 - has_field(entry, "bytes")) + (1 - has_field(entry, "adler32")) {
+                    failure = u:ckpt_error("ckpt-manifest", "manifest entry must carry bytes and adler32", manifest_path, name)
+                  } else {
+                    bytes = unwrap(record_get(entry, "bytes"));
+                    digest = unwrap(record_get(entry, "adler32"));
+                    if (1 - str_eq(type_of(bytes), "array")) + (1 - str_eq(type_of(digest), "string")) {
+                      failure = u:ckpt_error("ckpt-manifest", "manifest entry fields have the wrong types", manifest_path, name)
+                    } else {
+                      if (1 - u:ckpt_is_count(bytes)) + (1 - eq(str_len(digest), 8)) {
+                        failure = u:ckpt_error("ckpt-manifest", "manifest entry bytes or adler32 are malformed", manifest_path, name)
+                      } else {
+                        total = total + bytes
+                      }
+                    }
+                  }
+                };
+                position = position + 1
+              };
+              if is_err(failure) {
+                failure
+              } else {
+                if gt(total, budgets.max_total_bytes) {
+                  u:ckpt_error("ckpt-budget", "checkpoint exceeds max_total_bytes", manifest_path, "")
+                } else {
+                  ok({dir: dir, count: count, members: members, manifest: manifest, bytes: total, budgets: budgets})
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+def u:ckpt_check_member(checkpoint, name) {
+  "Verify one listed member's size and Adler-32 against the manifest and return its bytes.";
+  if 1 - has_field(checkpoint.manifest, name) {
+    u:ckpt_error("ckpt-missing", "member is not listed in the manifest", checkpoint.dir, name)
+  } else {
+    entry = unwrap(record_get(checkpoint.manifest, name));
+    path = u:ckpt_member_path(checkpoint.dir, name);
+    size = file_size(path);
+    if is_err(size) {
+      u:ckpt_error("ckpt-missing", err_message(size), path, name)
+    } else {
+      if 1 - eq(unwrap(size), entry.bytes) {
+        u:ckpt_error("ckpt-size", str_concat(str_concat(str_concat("file is ", to_string(unwrap(size))), " bytes, manifest says "), to_string(entry.bytes)), path, name)
+      } else {
+        if gt(entry.bytes, checkpoint.budgets.max_member_bytes) {
+          u:ckpt_error("ckpt-budget", "member exceeds max_member_bytes", path, name)
+        } else {
+          bytes = read_bytes(path, 0, entry.bytes);
+          if is_err(bytes) {
+            u:ckpt_error("ckpt-read", err_message(bytes), path, name)
+          } else {
+            if 1 - str_eq(u:ckpt_adler32(unwrap(bytes)), entry.adler32) {
+              u:ckpt_error("ckpt-checksum", "member bytes do not match the manifest checksum", path, name)
+            } else {
+              bytes
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+def u:ckpt_verify(dir, opts) {
+  "Check every member's size and checksum without decoding any tensor.";
+  checkpoint = u:ckpt_open(dir, opts)?;
+  position = 0;
+  failure = ok(0);
+  while lt(position, checkpoint.count) * is_ok(failure) {
+    failure = u:ckpt_check_member(checkpoint, unwrap(list_get(checkpoint.members, position)));
+    position = position + 1
+  };
+  if is_err(failure) {
+    failure
+  } else {
+    ok({dir: dir, count: checkpoint.count, members: checkpoint.members, bytes: checkpoint.bytes})
+  }
+}
+
+def u:ckpt_get(checkpoint, name) {
+  "Verify and decode one member of an opened checkpoint as ok(array).";
+  bytes = u:ckpt_check_member(checkpoint, name)?;
+  decoded = parse_native(bytes, {max_bytes: checkpoint.budgets.max_member_bytes});
+  if is_err(decoded) {
+    u:ckpt_error("ckpt-decode", err_message(decoded), u:ckpt_member_path(checkpoint.dir, name), name)
+  } else {
+    if 1 - str_eq(type_of(unwrap(decoded)), "array") {
+      u:ckpt_error("ckpt-decode", str_concat("member decodes to a ", type_of(unwrap(decoded))), u:ckpt_member_path(checkpoint.dir, name), name)
+    } else {
+      decoded
+    }
+  }
+}
+
+def u:ckpt_load(dir, opts) {
+  "Verify and decode every member and return ok(record) of arrays keyed by member name.";
+  checkpoint = u:ckpt_open(dir, opts)?;
+  if eq(checkpoint.count, 0) {
+    ok({})
+  } else {
+    position = 0;
+    text = "{";
+    elements = 16;
+    failure = ok(0);
+    while lt(position, checkpoint.count) * is_ok(failure) {
+      name = unwrap(list_get(checkpoint.members, position));
+      value = u:ckpt_get(checkpoint, name);
+      if is_err(value) {
+        failure = value
+      } else {
+        separator = if gt(position, 0) {
+          ","
+        } else {
+          ""
+        };
+        text = str_concat(str_concat(str_concat(str_concat(text, separator), unwrap(to_json(name))), ":"), unwrap(to_json(unwrap(value), {tagged: 1})));
+        elements = elements + size(unwrap(value)) + rank(unwrap(value)) + 16
+      };
+      position = position + 1
+    };
+    if is_err(failure) {
+      failure
+    } else {
+      assembled = parse_json(str_concat(text, "}"), {max_depth: 8, max_elements: elements});
+      if is_err(assembled) {
+        u:ckpt_error("ckpt-decode", err_message(assembled), dir, "")
+      } else {
+        assembled
+      }
+    }
+  }
+}

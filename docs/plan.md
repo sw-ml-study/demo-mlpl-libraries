@@ -176,3 +176,26 @@ checkout assumptions.
 - Moving Rust crates or native kernels into this repository.
 - Hiding host limitations behind shell environment tricks or absolute paths.
 - Generalizing an API before a second credible consumer exists.
+
+## Saga `requested-libraries` (2026-09-16 to 2026-09-18)
+
+Delivered the candidates named in
+`../reasoning-from-scratch/docs/demo-mlpl-libraries-requests.md`, each under
+the frozen contract with no dependencies, native mlplunit tests, a catalog
+entry, documentation, an example, and a committed consumer fixture:
+
+- `text` 0.1.0 (`u:text_`): total, character-indexed helpers with a
+  retirement probe for native string helpers.
+- `jsonl` 0.1.0 (`u:jsonl_`): budgeted JSON Lines reader returning record
+  sets with line-numbered diagnostics.
+- `safetensors-header` 0.1.0 (`u:sth_`): bounded header reader promoted from
+  `../demo-ml-utils` under `docs/safetensors-header-migration.md`.
+- `checkpoint` 0.1.0 (`u:ckpt_`): per-tensor MLPB directories with atomic
+  writes, a JSON index, and an Adler-32 manifest; introduced
+  `fs.write-atomic.v1`.
+
+Host gaps found on the way are recorded in `docs/sw-mlpl-requests.md` (S1
+to S7) and `docs/demo-extensions-requests.md` (E1, a Rust SHA-256 digest
+extension); the adoption request to `../demo-ml-utils` is in
+`docs/demo-ml-utils-requests.md`. The response to the requesting repository
+is `docs/requests-response.md`.

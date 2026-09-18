@@ -1,0 +1,11 @@
+schema_version = 1
+repository = "git@github.com:sw-ml-study/demo-mlpl-libraries.git"
+revision = "f3244ac79b3b2cd4ed43657d450bdcba0905fc5b"
+[[libraries]]
+name = "checkpoint"
+version = "0.1.0"
+entry = "lib/checkpoint/checkpoint.mlpl"
+manifest_sha256 = "78519f8d6a5997dfc15bfd4ea83d98ebd91e0a319a7e0c9c9f81118de9551a4f"
+[[libraries.files]]
+path = "lib/checkpoint/checkpoint.mlpl"
+sha256 = "25d837a24bc73af5eb176c324b5eada0dd4ed48afabd32a14c399f805e5b1d62"

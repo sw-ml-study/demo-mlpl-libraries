@@ -1,0 +1,10 @@
+# Consumer of the vendored safetensors header reader: inspect a file and locate one tensor.
+include "vendor/swml/lib/safetensors-header/header.mlpl";
+
+header = u:sth_inspect("data/model.safetensors", {max_header_bytes: 4096})?;
+tensor = u:sth_tensor(header, "tensor_b")?;
+if eq(header.tensor_count, 3) * eq(tensor.end, 6) * header.metadata_present {
+  ok(header.names)
+} else {
+  err("vendored safetensors header mismatch")
+}

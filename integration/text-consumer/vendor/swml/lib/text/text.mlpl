@@ -1,0 +1,144 @@
+# Small, total, character-indexed text helpers over the core string builtins.
+def u:text_whitespace_class() {
+  "Return the ASCII whitespace characters: tab, LF, VT, FF, CR, and space.";
+  decode_bytes([9, 10, 11, 12, 13, 32])
+}
+
+def u:text_is_empty(text) {
+  "Return 1 when text has no characters, otherwise 0.";
+  eq(str_len(text), 0)
+}
+
+def u:text_starts_with(text, prefix) {
+  "Return 1 when text begins with prefix; an empty prefix always matches.";
+  str_eq(str_slice(text, 0, str_len(prefix)), prefix)
+}
+
+def u:text_ends_with(text, suffix) {
+  "Return 1 when text ends with suffix; an empty suffix always matches.";
+  length = str_len(text);
+  width = str_len(suffix);
+  if gt(width, length) {
+    0
+  } else {
+    str_eq(str_slice(text, length - width, width), suffix)
+  }
+}
+
+def u:text_contains(text, needle) {
+  "Return 1 when needle occurs in text; an empty needle always matches.";
+  1 - eq(str_find(text, needle), -1)
+}
+
+def u:text_all_in_class(text, class) {
+  "Return 1 when text is non-empty and every character occurs in class.";
+  members = str_split(text, "");
+  count = len(members);
+  index = 0;
+  inside = gt(count, 0);
+  while inside * lt(index, count) {
+    inside = 1 - eq(str_find(class, unwrap(list_get(members, index))), -1);
+    index = index + 1
+  };
+  inside
+}
+
+def u:text_is_digit(text) {
+  "Return 1 when text is non-empty and every character is an ASCII digit.";
+  u:text_all_in_class(text, "0123456789")
+}
+
+def u:text_is_letter(text) {
+  "Return 1 when text is non-empty and every character is an ASCII letter.";
+  u:text_all_in_class(text, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+}
+
+def u:text_is_whitespace(text) {
+  "Return 1 when text is non-empty and every character is ASCII whitespace.";
+  u:text_all_in_class(text, u:text_whitespace_class())
+}
+
+def u:text_trim_left(text) {
+  "Remove leading ASCII whitespace characters.";
+  length = str_len(text);
+  start = 0;
+  while lt(start, length) {
+    if u:text_is_whitespace(str_slice(text, start, 1)) {
+      start = start + 1
+    } else {
+      break
+    }
+  };
+  str_slice(text, start, length - start)
+}
+
+def u:text_trim_right(text) {
+  "Remove trailing ASCII whitespace characters.";
+  stop = str_len(text);
+  while gt(stop, 0) {
+    if u:text_is_whitespace(str_slice(text, stop - 1, 1)) {
+      stop = stop - 1
+    } else {
+      break
+    }
+  };
+  str_slice(text, 0, stop)
+}
+
+def u:text_trim(text) {
+  "Remove leading and trailing ASCII whitespace characters.";
+  u:text_trim_right(u:text_trim_left(text))
+}
+
+def u:text_replace_all(text, needle, replacement, max_replacements) {
+  "Replace up to max_replacements left-to-right non-overlapping needle occurrences; an empty needle replaces nothing.";
+  width = str_len(needle);
+  rest = text;
+  output = "";
+  count = 0;
+  while gt(width, 0) * lt(count, max_replacements) {
+    found = str_find(rest, needle);
+    if lt(found, 0) {
+      break
+    } else {
+      output = str_concat(str_concat(output, str_slice(rest, 0, found)), replacement);
+      rest = str_slice(rest, found + width, str_len(rest) - found - width);
+      count = count + 1
+    }
+  };
+  str_concat(output, rest)
+}
+
+def u:text_pad_left(text, width, pad) {
+  "Prepend the first character of pad until text has at least width characters; an empty pad returns text.";
+  unit = str_slice(pad, 0, 1);
+  output = text;
+  while gt(str_len(unit), 0) * lt(str_len(output), width) {
+    output = str_concat(unit, output)
+  };
+  output
+}
+
+def u:text_pad_right(text, width, pad) {
+  "Append the first character of pad until text has at least width characters; an empty pad returns text.";
+  unit = str_slice(pad, 0, 1);
+  output = text;
+  while gt(str_len(unit), 0) * lt(str_len(output), width) {
+    output = str_concat(output, unit)
+  };
+  output
+}
+
+def u:text_split_lines(text) {
+  "Split text on LF or CRLF into a string list, dropping one final terminator; empty text yields no lines.";
+  normalized = u:text_replace_all(text, "\r\n", "\n", str_len(text));
+  if u:text_is_empty(normalized) {
+    str_split("", "")
+  } else {
+    if u:text_ends_with(normalized, "\n") {
+      str_split(str_slice(normalized, 0, str_len(normalized) - 1), "\n")
+    } else {
+      str_split(normalized, "\n")
+    }
+  }
+}
