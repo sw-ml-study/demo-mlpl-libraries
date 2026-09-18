@@ -55,3 +55,14 @@ license = "MIT"
 source_files = ["lib/safetensors-header/header.mlpl"]
 capabilities = ["core.include.v1", "fs.read-bounded.v1"]
 dependencies = []
+
+[[libraries]]
+name = "checkpoint"
+version = "0.1.0"
+entry = "lib/checkpoint/checkpoint.mlpl"
+prefix = "u:ckpt_"
+documentation = "docs/checkpoint.md"
+license = "MIT"
+source_files = ["lib/checkpoint/checkpoint.mlpl"]
+capabilities = ["core.include.v1", "fs.read-bounded.v1", "fs.write-atomic.v1"]
+dependencies = []

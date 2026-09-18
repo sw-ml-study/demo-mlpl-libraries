@@ -6,6 +6,18 @@ file=${1:?usage: validate-catalog CATALOG}
 awk '
 function fail(message) { print FILENAME ":" NR ": " message > "/dev/stderr"; bad=1 }
 function value(line) { sub(/^[^=]*=[[:space:]]*/, "", line); gsub(/^"|"$/, "", line); return line }
+function known_capability(id) {
+  return id ~ /^(core\.include\.v1|fs\.read-bounded\.v1|fs\.write-atomic\.v1|extension\.port\.v1|accelerator\.mlx\.v1|accelerator\.cuda\.v1)$/
+}
+function check_capabilities(raw,   inner, parts, count, i, id) {
+  inner=raw; sub(/^\[[[:space:]]*/, "", inner); sub(/[[:space:]]*\]$/, "", inner)
+  if (inner == "") return
+  count=split(inner, parts, ",")
+  for (i=1; i<=count; i++) {
+    id=parts[i]; gsub(/^[[:space:]]*"|"[[:space:]]*$/, "", id)
+    if (!known_capability(id)) fail("unknown capability identifier " id)
+  }
+}
 function safe_path(path) {
   return path !~ /^\// && path !~ /(^|\/)\.\.?(\/|$)/ && path !~ /\/\//
 }
@@ -34,6 +46,7 @@ entry && /^[a-z_]+[[:space:]]*=/ {
   else if (key=="documentation") documentation=raw
   else if (key=="license" && raw !~ /^[A-Za-z0-9.-]+$/) fail("invalid SPDX identifier")
   else if ((key=="source_files" || key=="capabilities" || key=="dependencies") && raw !~ /^\[.*\]$/) fail(key " must be an array")
+  else if (key=="capabilities") check_capabilities(raw)
   next
 }
 END { finish(); if (!schema) fail("missing schema_version"); if (!empty && !entry && length(names)==0) fail("missing libraries declaration"); exit bad }

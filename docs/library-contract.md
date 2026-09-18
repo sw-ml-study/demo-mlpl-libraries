@@ -45,9 +45,19 @@ operator (`=`, `^`, or `~`); the installer will reject rather than guess when it
 cannot satisfy the declared set.
 
 Capabilities are stable public host features, not executable probes embedded in
-the manifest. Examples include `core.include.v1`, `fs.read-bounded.v1`,
-`extension.port.v1`, `accelerator.mlx.v1`, and `accelerator.cuda.v1`. Tests own
-the corresponding probes. An empty list means pure core language behavior.
+the manifest. The validator accepts exactly these identifiers; adding one is a
+contract change recorded here:
+
+| Identifier | Host surface |
+|---|---|
+| `core.include.v1` | top-level static `include` beneath `--source-dir` |
+| `fs.read-bounded.v1` | `file_size`, three-argument `read_bytes`, `read_text`, `decode_bytes`, sandbox refusal as `err` |
+| `fs.write-atomic.v1` | `make_dir` (with parents) and `write_atomic` (temp file plus rename) beneath the sandbox, refusal as `err` |
+| `extension.port.v1` | Port send, handler registration, and the event loop of a loaded extension |
+| `accelerator.mlx.v1`, `accelerator.cuda.v1` | reserved for device facades; no library declares them yet |
+
+Tests own the corresponding probes. An empty list means pure core language
+behavior.
 
 ## Consumer lock version 1
 

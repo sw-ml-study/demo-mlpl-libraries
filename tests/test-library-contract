@@ -4,6 +4,9 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 "$repo_root/scripts/validate-catalog" "$repo_root/catalog/libraries.toml"
 "$repo_root/scripts/validate-catalog" "$repo_root/tests/fixtures/valid-catalog.toml"
 "$repo_root/scripts/validate-lock" "$repo_root/tests/fixtures/valid.lock.toml" >/dev/null
+if "$repo_root/scripts/validate-catalog" "$repo_root/tests/fixtures/invalid-catalog-capability.toml" >/dev/null 2>&1; then
+    echo "validator accepted an unknown capability identifier" >&2; exit 1
+fi
 if "$repo_root/scripts/validate-catalog" "$repo_root/tests/fixtures/invalid-catalog-duplicate.toml" >/dev/null 2>&1; then
     echo "invalid catalog unexpectedly accepted" >&2; exit 1
 fi

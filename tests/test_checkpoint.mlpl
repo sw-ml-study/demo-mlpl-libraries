@@ -1,0 +1,160 @@
+# Native mlplunit contract tests for the per-tensor MLPB checkpoint library.
+include "lib/checkpoint/checkpoint.mlpl";
+
+def u:test_ckpt_dir(name) {
+  "Return a scratch checkpoint directory beneath the ignored tmp/ tree.";
+  str_concat("tmp/checkpoint-tests/", name)
+}
+
+def u:test_ckpt_kind(result) {
+  "Return the kind field of a structured checkpoint error.";
+  unwrap(record_get(err_message(result), "kind"))
+}
+
+def u:test_ckpt_member(result) {
+  "Return the member field of a structured checkpoint error.";
+  unwrap(record_get(err_message(result), "member"))
+}
+
+def u:test_ckpt_sample() {
+  "Return a record of arrays covering rank 0, 1, 2, an empty array, negatives, and fractions.";
+  {w: reshape(range(6) * 0.5 - 1, [2, 3]), b: [1, 2, 3], s: 7, e: reshape([], [0, 2]), neg: [0 - 1.25, 1e-9, 123456789]}
+}
+
+def u:test_ckpt_write_manifest(dir, text) {
+  "Overwrite the manifest of a checkpoint with literal JSON text.";
+  write_atomic(u:ckpt_manifest_path(dir), text)
+}
+
+def u:test_ckpt_write_index(dir, text) {
+  "Overwrite the index of a checkpoint with literal JSON text.";
+  write_atomic(u:ckpt_index_path(dir), text)
+}
+
+@test {name: "checkpoint round-trips arrays of several ranks exactly", tags: ["checkpoint", "roundtrip"]}
+def u:test_ckpt_roundtrip() {
+  "Verify save, verify, load, and get return the original arrays with sorted members.";
+  dir = u:test_ckpt_dir("roundtrip");
+  sample = u:test_ckpt_sample();
+  saved = u:ckpt_save(dir, sample, {})?;
+  u:assert_eq([saved.count, saved.bytes], [5, tally(unwrap(to_native(sample.w))) + tally(unwrap(to_native(sample.b))) + tally(unwrap(to_native(sample.s))) + tally(unwrap(to_native(sample.e))) + tally(unwrap(to_native(sample.neg)))], "count and total bytes")?;
+  u:assert_eq(saved.members, ["b", "e", "neg", "s", "w"], "members are sorted")?;
+  verified = u:ckpt_verify(dir, {})?;
+  u:assert_eq(verified.count, 5, "verify sees every member")?;
+  loaded = u:ckpt_load(dir, {})?;
+  u:assert_eq(loaded, sample, "loaded record equals the saved record")?;
+  u:assert_eq(shape(loaded.e), [0, 2], "empty rank-2 shape survives")?;
+  opened = u:ckpt_open(dir, {})?;
+  u:assert_eq(u:ckpt_get(opened, "w"), ok(sample.w), "single member access")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_get(opened, "absent")), "ckpt-missing", "unlisted member")?;
+  index_text = read_text(u:ckpt_index_path(dir))?;
+  index_record = parse_json(index_text)?;
+  u:assert_eq([index_record.format, unwrap(list_get(index_record.members, 0))], ["mlpl-checkpoint", "b"], "index format and first member")?;
+  u:assert_eq([index_record.version, index_record.count], [1, 5], "index version and count")?;
+  again = u:ckpt_save(dir, {b: [9]}, {})?;
+  u:assert_eq(again.count, 1, "saving again replaces the index")?;
+  u:assert_eq(u:ckpt_load(dir, {}), ok({b: [9]}), "stale members are no longer listed")
+}
+
+@test {name: "checkpoint handles empty records and standard Adler-32", tags: ["checkpoint", "empty"]}
+def u:test_ckpt_empty() {
+  "Verify an empty record round-trips and the checksum matches the reference values.";
+  dir = u:test_ckpt_dir("empty");
+  u:assert_eq(unwrap(u:ckpt_save(dir, {}, {})).count, 0, "empty save")?;
+  u:assert_eq(u:ckpt_load(dir, {}), ok({}), "empty load")?;
+  u:assert_eq(unwrap(u:ckpt_verify(dir, {})).bytes, 0, "empty verify")?;
+  u:assert_eq(u:ckpt_adler32(tokenize_bytes("abc")), "024d0127", "Adler-32 of abc")?;
+  u:assert_eq(u:ckpt_adler32([]), "00000001", "Adler-32 of nothing")?;
+  u:assert_eq(u:ckpt_adler32(tokenize_bytes("Wikipedia")), "11e60398", "Adler-32 reference from the specification")
+}
+
+@test {name: "checkpoint rejects malformed input before writing", tags: ["checkpoint", "input"]}
+def u:test_ckpt_input() {
+  "Verify non-record values, non-array members, unsafe names, and member budgets are refused.";
+  dir = u:test_ckpt_dir("input");
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_save(dir, [1, 2], {})), "ckpt-input", "array instead of record")?;
+  text_member = u:ckpt_save(dir, {ok_member: [1], label: "text"}, {});
+  u:assert_eq([u:test_ckpt_kind(text_member), u:test_ckpt_member(text_member)], ["ckpt-input", "label"], "string member named")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_save(dir, {}, {max_members: 0 - 1})), "ckpt-budget", "member budget")?;
+  u:assert_eq([u:ckpt_valid_name("layer.0_w-1"), u:ckpt_valid_name(".hidden"), u:ckpt_valid_name("a/b"), u:ckpt_valid_name(""), u:ckpt_valid_name("é")], [1, 0, 0, 0, 0], "name rules")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_save(dir, {a: [1, 2, 3, 4]}, {max_member_bytes: 10})), "ckpt-budget", "member byte budget on save")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_save(dir, {a: [1, 2], b: [3, 4]}, {max_total_bytes: 60})), "ckpt-budget", "total byte budget on save")
+}
+
+@test {name: "checkpoint detects missing, extra, and tampered members", tags: ["checkpoint", "integrity"]}
+def u:test_ckpt_integrity() {
+  "Verify manifest and index disagreements, absent files, wrong sizes, wrong checksums, and wrong kinds.";
+  dir = u:test_ckpt_dir("integrity");
+  u:ckpt_save(dir, {a: [1, 2], b: [3]}, {})?;
+  a_bytes = unwrap(to_native([1, 2]));
+  b_bytes = unwrap(to_native([3]));
+  a_entry = str_concat(str_concat(str_concat("\"a\":{\"adler32\":\"", u:ckpt_adler32(a_bytes)), "\",\"bytes\":"), to_string(tally(a_bytes)));
+  b_entry = str_concat(str_concat(str_concat("\"b\":{\"adler32\":\"", u:ckpt_adler32(b_bytes)), "\",\"bytes\":"), to_string(tally(b_bytes)));
+  u:test_ckpt_write_manifest(dir, str_concat(str_concat(str_concat(str_concat("{", a_entry), "},"), b_entry), "},\"never_written\":{\"adler32\":\"00000001\",\"bytes\":0}}"))?;
+  u:test_ckpt_write_index(dir, "{\"count\":3,\"format\":\"mlpl-checkpoint\",\"members\":[\"a\",\"b\",\"never_written\"],\"version\":1}")?;
+  missing = u:ckpt_verify(dir, {});
+  u:assert_eq([u:test_ckpt_kind(missing), u:test_ckpt_member(missing)], ["ckpt-missing", "never_written"], "listed member without a file")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_load(dir, {})), "ckpt-missing", "load shares the check")?;
+  u:test_ckpt_write_index(dir, "{\"count\":1,\"format\":\"mlpl-checkpoint\",\"members\":[\"a\"],\"version\":1}")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-index", "index and manifest member sets differ")?;
+  u:test_ckpt_write_manifest(dir, "{\"a\":{\"bytes\":1}}")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-manifest", "manifest entry without a checksum")?;
+  u:ckpt_save(dir, {a: [1, 2], b: [3]}, {})?;
+  write_atomic(u:ckpt_member_path(dir, "b"), unwrap(to_native([4])))?;
+  tampered = u:ckpt_verify(dir, {});
+  u:assert_eq([u:test_ckpt_kind(tampered), u:test_ckpt_member(tampered)], ["ckpt-checksum", "b"], "same-size tamper")?;
+  write_atomic(u:ckpt_member_path(dir, "b"), [1, 2, 3])?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_verify(dir, {})), "ckpt-size", "wrong size")?;
+  text_bytes = unwrap(to_native("not an array"));
+  u:test_ckpt_write_manifest(dir, str_concat(str_concat(str_concat(str_concat(str_concat("{", a_entry), "},\"b\":{\"adler32\":\""), u:ckpt_adler32(text_bytes)), "\",\"bytes\":"), str_concat(to_string(tally(text_bytes)), "}}")))?;
+  u:test_ckpt_write_index(dir, "{\"count\":2,\"format\":\"mlpl-checkpoint\",\"members\":[\"a\",\"b\"],\"version\":1}")?;
+  write_atomic(u:ckpt_member_path(dir, "b"), text_bytes)?;
+  u:assert_eq(u:ckpt_verify(dir, {}), ok({dir: dir, count: 2, members: ["a", "b"], bytes: tally(a_bytes) + tally(text_bytes)}), "verify does not decode")?;
+  decoded = u:ckpt_load(dir, {});
+  u:assert_eq([u:test_ckpt_kind(decoded), u:test_ckpt_member(decoded)], ["ckpt-decode", "b"], "member that decodes to a string")
+}
+
+@test {name: "checkpoint rejects truncated or foreign indexes", tags: ["checkpoint", "index"]}
+def u:test_ckpt_index() {
+  "Verify truncated JSON, wrong format or version, bad counts, and unsafe names in the index.";
+  dir = u:test_ckpt_dir("index");
+  u:ckpt_save(dir, {a: [1]}, {})?;
+  u:test_ckpt_write_index(dir, "{\"count\":1,\"format\":\"mlpl-che")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-index", "truncated index")?;
+  u:test_ckpt_write_index(dir, "{\"count\":1,\"format\":\"mlpl-checkpoint\",\"members\":[\"a\"],\"version\":2}")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-index", "unsupported version")?;
+  u:test_ckpt_write_index(dir, "{\"count\":2,\"format\":\"mlpl-checkpoint\",\"members\":[\"a\"],\"version\":1}")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-index", "count disagrees with members")?;
+  u:test_ckpt_write_index(dir, "[1, 2]")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-index", "array root")?;
+  u:test_ckpt_write_index(dir, "{\"count\":1,\"format\":\"mlpl-checkpoint\",\"members\":[\"../a\"],\"version\":1}")?;
+  u:test_ckpt_write_manifest(dir, "{\"../a\":{\"adler32\":\"00000001\",\"bytes\":0}}")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {})), "ckpt-index", "unsafe member name never reaches the filesystem")?;
+  u:ckpt_save(dir, {a: [1]}, {})?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {max_index_bytes: 10})), "ckpt-budget", "index byte budget")
+}
+
+@test {name: "checkpoint budgets on load and verify fail closed", tags: ["checkpoint", "budgets"]}
+def u:test_ckpt_budgets() {
+  "Verify member, per-member, and total byte budgets are enforced from the manifest before reading data.";
+  dir = u:test_ckpt_dir("budgets");
+  u:ckpt_save(dir, {a: range(100), b: range(10)}, {})?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {max_members: 1})), "ckpt-budget", "member count")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(dir, {max_total_bytes: 100})), "ckpt-budget", "total bytes from the manifest")?;
+  over = u:ckpt_verify(dir, {max_member_bytes: 200});
+  u:assert_eq([u:test_ckpt_kind(over), u:test_ckpt_member(over)], ["ckpt-budget", "a"], "per-member bytes")?;
+  u:assert_eq(unwrap(u:ckpt_load(dir, {max_member_bytes: 900, max_total_bytes: 1000})).a, range(100), "budgets equal to the need pass")
+}
+
+@test {name: "checkpoint host refusals are structured errors", tags: ["checkpoint", "capability"]}
+def u:test_ckpt_host() {
+  "Verify missing directories and sandbox escapes on both the read and write paths return errs.";
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_open(u:test_ckpt_dir("never-created"), {})), "ckpt-read", "missing directory")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_load("../escape-checkpoint", {})), "ckpt-read", "sandbox escape on load")?;
+  escape = u:ckpt_save("../escape-checkpoint", {a: [1]}, {});
+  u:assert_eq(u:test_ckpt_kind(escape), "ckpt-write", "sandbox escape on save")?;
+  u:assert_true(1 - eq(str_find(unwrap(record_get(err_message(escape), "cause")), "sandbox"), -1), "cause names the sandbox")?;
+  u:assert_eq(u:test_ckpt_kind(u:ckpt_save("/absolute/checkpoint", {a: [1]}, {})), "ckpt-write", "absolute path refused")
+}
+
+u:run_registered_tests()

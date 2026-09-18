@@ -66,6 +66,9 @@ library code lands.
 - [`safetensors-header` 0.1.0](docs/safetensors-header.md): exact header
   length decode, two bounded reads, budgeted JSON validation, sorted tensor
   discovery, and validated dtype, shape, and offset records.
+- [`checkpoint` 0.1.0](docs/checkpoint.md): per-tensor MLPB checkpoint
+  directories with atomic writes, a JSON index, and a size and Adler-32
+  manifest verified before decoding.
 
 The Native3D extraction is governed by the frozen
 [Native3D migration contract](docs/native3d-migration.md), and the

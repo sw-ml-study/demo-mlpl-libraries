@@ -1,6 +1,6 @@
 number = 5
 slug = "checkpoint-library"
-status = "pending"
+status = "in-progress"
 description = "Implement the L4 per-tensor MLPB checkpoint library test-first under docs/lib..."
 role = "production"
 context_files = []

@@ -69,6 +69,31 @@ retirement triggers.
   builds a record from a key list and a value list, would let a library
   return fully parsed collections.
 
+## S6. A `sha256` builtin over byte arrays and strings
+
+- Found by: `checkpoint` 0.1.0. The plan asked for a SHA-256 manifest;
+  `sha256` is mentioned in upstream docs but is not a builtin in the
+  interpreter selected here (`unknown function: sha256`), and there are
+  no bit operations to implement it in MLPL at usable speed.
+- Workaround: the manifest records a standard Adler-32 computed exactly
+  with vectorized `mod` and `reduce(:add, ...)` (about 0.2 s per 10 MB),
+  under a field named `adler32` so a `sha256` field can be added without
+  breaking consumers. Adler-32 detects corruption but not tampering.
+- Priority: medium. Any checkpoint or download verifier wants a
+  cryptographic digest; a builtin is the natural home because it is a
+  pure function over bytes that every consumer needs, and the same request
+  is mirrored to `../demo-extensions` (E1) as a fallback.
+
+## S7. Directory listing and file removal (`list_dir`, `remove_file`)
+
+- Found by: `checkpoint` 0.1.0.
+- Gap: without `list_dir`, a member file that is present but unlisted
+  cannot be reported, and without `remove_file` a re-save with fewer
+  members cannot clean up stale files or a failed save cannot roll back.
+- Workaround: the index is authoritative and stale files are documented as
+  ignored; the index is written last so an interrupted save is detectable.
+- Priority: low until a consumer needs garbage collection of checkpoints.
+
 ## Not requested
 
 - `chars(s)`: `str_split(s, "")` already yields the character list.
