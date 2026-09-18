@@ -5,9 +5,29 @@ libraries are recorded here with the workaround in use, so upstream can
 decide whether and when to ship them. Each entry names the library that hit
 the gap and the test that would notice a change.
 
-Status as of 2026-09-18: nothing blocks a published library. S4 is a
-crash that libraries must guard against; S6 records a home decision
-(extension, not core); the rest are conveniences or retirement triggers.
+Status as of 2026-09-18, re-probed against the rebuilt interpreter at
+`../sw-mlpl` commit `a5026255`: S4 is **resolved upstream**. Nothing blocks
+a published library. S6 records a home decision (extension, not core); the
+rest are conveniences or retirement triggers, and every builtin they name
+is still absent, so each workaround in this file is still the one in use.
+
+### Upstream identifier mapping
+
+Upstream tracks its own findings as `RS<n>` in
+`../sw-mlpl/docs/sw-mlpl-findings.md`. Only one overlaps this file:
+
+| Upstream | Here | State |
+|---|---|---|
+| RS9 (no `str_replace`/`trim`/`starts_with`) | S1 | delivered as the `text` 0.1.0 library; core still ships none of the four |
+| (unnumbered, our report) | S4 | fixed upstream in commit `1ce43dc2` |
+
+Upstream routes RS7 (gradient clipping) and RS8 (weight decay) to this
+repository as library work. Neither is a request to us yet:
+`../reasoning-from-scratch/docs/demo-mlpl-libraries-requests.md` does not
+list them, and that repository's `feature-homes.md` keeps both in its own
+Saga 5 until unrelated consumers exist. They are recorded here so the
+routing disagreement is visible, not acted on. If that repository asks for
+either, it becomes a normal library request.
 
 ## S1. Native string helpers (`str_replace`, `str_trim`, `str_starts_with`, `str_contains`)
 
@@ -44,18 +64,26 @@ crash that libraries must guard against; S6 records a home decision
   (record-of-results instead of list-of-records) rather than merely its
   implementation.
 
-## S4. Interpreter panic when broadcasting a scalar over an empty array
+## S4. Interpreter panic when broadcasting a scalar over an empty array (RESOLVED)
 
 - Found by: `jsonl` 0.1.0 (`range(0) + 1` for an empty record set).
-- Gap: `range(0) + 1` aborts the process with a Rust panic (`index out of
+- Was: `range(0) + 1` aborted the process with a Rust panic (`index out of
   bounds: the len is 0 but the index is 0` in
-  `mlpl-array-ops-element/src/broadcast.rs`) instead of returning an empty
-  array or an `err`. A panic cannot be caught by `try`, so a library
-  cannot make the host total on its own.
-- Workaround: `u:jsonl_numbers_upto` returns `[]` for a zero count before
-  any arithmetic. Every library in this repository must guard empty arrays
-  before element-wise operations until this is fixed.
-- Priority: high. It is a crash reachable from valid data (an empty file).
+  `mlpl-array-ops-element/src/broadcast.rs:98`) instead of returning an
+  empty array. A panic cannot be caught by `try`, so no library could make
+  the host total on its own.
+- Fixed upstream in commit `1ce43dc2`. Re-probed here on 2026-09-18 against
+  the rebuilt interpreter: `range(0) + 1` returns an empty array with
+  `tally` zero, and the rank-2 form `reshape([], [0, 3]) + 1` is also
+  total. Upstream reported the original write-up was sufficient to
+  reproduce and root-cause it.
+- The guard stays. `u:jsonl_numbers_upto` still returns `[]` for a zero
+  count before any arithmetic, because a vendored library runs on whatever
+  interpreter its consumer has, including builds older than this fix. The
+  guard is three lines, costs nothing, and is the only thing that made the
+  empty-file path safe on every build. New libraries need not add such
+  guards for this operation.
+- Priority: none. Closed.
 
 ## S5. A general list type, or records with computed keys
 

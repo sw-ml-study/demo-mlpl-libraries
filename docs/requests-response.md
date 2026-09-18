@@ -131,6 +131,13 @@ Recorded, never applied, in `docs/sw-mlpl-requests.md` (S1 native string
 helpers, S2 code-point access, S3 string-list append, S4 an interpreter
 panic on `range(0) + 1`, S5 a list-of-records type, S6 the SHA-256 home
 decision, S7 directory listing and file removal) and
-`docs/demo-extensions-requests.md` (E1 the SHA-256 digest extension). S4
-is the one to know about: adding a scalar to an empty array aborts the
-process, so guard empty arrays before element-wise arithmetic.
+`docs/demo-extensions-requests.md` (E1 the SHA-256 digest extension).
+
+Update of 2026-09-18: S4 is fixed upstream in `../sw-mlpl` commit
+`1ce43dc2`, so adding a scalar to an empty array no longer aborts the
+process. Re-probed here against the rebuilt interpreter, every other
+builtin named above is still absent, so the workarounds in these libraries
+remain the ones in use and the `text` retirement probe still passes. The
+libraries keep their empty-array guards deliberately, because a vendored
+library runs on whatever interpreter its consumer has, including builds
+predating the fix.
