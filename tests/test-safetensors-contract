@@ -17,4 +17,14 @@ for boundary in 'fs.read-bounded.v1' 'two budgeted reads' 'one bounded header re
 done
 fixture_count=$(grep -c '^| `[a-z-]*\.safetensors` | `[0-9a-f]\{64\}` |' "$contract")
 [ "$fixture_count" -eq 20 ] || { echo "expected 20 pinned fixtures, found $fixture_count" >&2; exit 1; }
+fixture_dir=$repo_root/tests/fixtures/safetensors
+if [ -d "$fixture_dir" ]; then
+    copied=$(find "$fixture_dir" -type f -name '*.safetensors' | wc -l | tr -d ' ')
+    [ "$copied" -eq 20 ] || { echo "expected 20 copied fixtures, found $copied" >&2; exit 1; }
+    for fixture in "$fixture_dir"/*.safetensors; do
+        name=$(basename -- "$fixture")
+        digest=$(shasum -a 256 "$fixture" | cut -d' ' -f1)
+        grep -Fq "| \`$name\` | \`$digest\` |" "$contract" || { echo "fixture digest not pinned by the contract: $name" >&2; exit 1; }
+    done
+fi
 echo "PASS frozen safetensors header migration contract"

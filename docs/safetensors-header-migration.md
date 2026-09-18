@@ -1,6 +1,8 @@
 # Safetensors header reader migration contract
 
-Status: frozen extraction baseline, 2026-09-17. Request L3 in
+Status: frozen extraction baseline, 2026-09-17; implemented by
+`safetensors-header` 0.1.0 (step 004 added the optional `path` and
+`budgets` fields and the caller-built record clause). Request L3 in
 `../reasoning-from-scratch/docs/demo-mlpl-libraries-requests.md`.
 
 ## Evidence baseline
@@ -67,15 +69,23 @@ the order of validation is an API change under `docs/library-contract.md`.
 | `max_parameters` | 9007199254740991 | exact budget for one tensor's element count and byte count |
 
 `u:sth_read_header` returns `ok({file_size, header_length, header_bytes,
-data_bytes})` where `data_bytes` is `file_size - 8 - header_length` and
+data_bytes, path})` where `data_bytes` is `file_size - 8 - header_length` and
 `header_bytes` is the rank-1 byte array of the declared header. The file
 is touched by `file_size` and exactly two budgeted reads (the eight-byte
 prefix, then the declared header), so memory is O(`max_header_bytes`),
 independent of tensor data.
 
+`u:sth_parse_header` accepts any record with those fields, not only one
+produced by `u:sth_read_header`; `path` is optional and defaults to `""`.
+A consumer that fetched the prefix and header bytes another bounded way
+(an HTTP range request, a test fixture built in memory) builds the record
+itself and gets identical validation. The whole-file array slicers of the
+proven reader are therefore unnecessary and are not published.
+
 `u:sth_parse_header` and `u:sth_inspect` return
-`ok({file_size, header_length, data_bytes, names, tensor_count,
-parameter_count, tensor_bytes, metadata, metadata_present, table, entries})`:
+`ok({file_size, header_length, data_bytes, path, names, tensor_count,
+parameter_count, tensor_bytes, metadata, metadata_present, table, entries,
+budgets})`:
 
 - `names`: the tensor names as a sorted string list, `__metadata__`
   excluded; discovery order comes from `record_keys` and is deterministic.
@@ -86,6 +96,8 @@ parameter_count, tensor_bytes, metadata, metadata_present, table, entries})`:
 - `entries`: the parsed JSON header record, so `u:sth_tensor(header, name)`
   can return `ok({name, dtype, shape, data_offsets, start, end, parameters,
   width})` without a second read.
+- `budgets`: the resolved option record, so the accessor re-validates under
+  the same `max_parameters`.
 
 Validation order is fixed: host read errors, prefix length, header length
 budget, truncation, short header read, JSON budgets and syntax, object

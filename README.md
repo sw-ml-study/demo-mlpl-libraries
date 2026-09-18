@@ -63,6 +63,9 @@ library code lands.
   character classes over the core string builtins.
 - [`jsonl` 0.1.0](docs/jsonl.md): budgeted JSON Lines reader with one-based
   line diagnostics, a bounded preview, and on-demand record access.
+- [`safetensors-header` 0.1.0](docs/safetensors-header.md): exact header
+  length decode, two bounded reads, budgeted JSON validation, sorted tensor
+  discovery, and validated dtype, shape, and offset records.
 
 The Native3D extraction is governed by the frozen
 [Native3D migration contract](docs/native3d-migration.md), and the

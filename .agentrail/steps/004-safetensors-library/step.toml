@@ -1,6 +1,6 @@
 number = 4
 slug = "safetensors-library"
-status = "pending"
+status = "in-progress"
 description = "Implement the L3 safetensors header reader library test-first against the fro..."
 role = "production"
 context_files = []

@@ -44,3 +44,14 @@ license = "MIT"
 source_files = ["lib/jsonl/jsonl.mlpl"]
 capabilities = ["core.include.v1", "fs.read-bounded.v1"]
 dependencies = []
+
+[[libraries]]
+name = "safetensors-header"
+version = "0.1.0"
+entry = "lib/safetensors-header/header.mlpl"
+prefix = "u:sth_"
+documentation = "docs/safetensors-header.md"
+license = "MIT"
+source_files = ["lib/safetensors-header/header.mlpl"]
+capabilities = ["core.include.v1", "fs.read-bounded.v1"]
+dependencies = []

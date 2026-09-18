@@ -1,0 +1,19 @@
+# List every tensor of a safetensors file from its header alone, then show a rejected file.
+include "../lib/safetensors-header/header.mlpl";
+
+def u:example_inventory(path) {
+  "Print one line per tensor with its dtype, shape, and byte range.";
+  header = u:sth_inspect(path, {max_header_bytes: 4096})?;
+  index = 0;
+  while lt(index, header.tensor_count) {
+    tensor = u:sth_tensor(header, unwrap(list_get(header.names, index)))?;
+    print(tensor.name, tensor.dtype, "shape", tensor.shape, "bytes", tensor.start, "to", tensor.end);
+    index = index + 1
+  };
+  ok({tensors: header.tensor_count, parameters: header.parameter_count, data_bytes: header.data_bytes})
+}
+
+print(u:example_inventory("tests/fixtures/safetensors/valid-catalog.safetensors"));
+failure = u:sth_inspect("tests/fixtures/safetensors/hole-offsets.safetensors", {max_header_bytes: 4096});
+print("hole-offsets.safetensors:", err_message(failure).kind, err_message(failure).cause);
+failure

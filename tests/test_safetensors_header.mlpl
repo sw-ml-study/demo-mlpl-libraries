@@ -1,0 +1,133 @@
+# Native mlplunit contract tests for the bounded safetensors header reader.
+include "lib/safetensors-header/header.mlpl";
+
+def u:test_sth_fixture(name) {
+  "Return the repository-relative path of a copied demo-ml-utils fixture.";
+  str_concat("tests/fixtures/safetensors/", name)
+}
+
+def u:test_sth_kind(result) {
+  "Return the kind field of a structured reader error.";
+  unwrap(record_get(err_message(result), "kind"))
+}
+
+def u:test_sth_has(text, needle) {
+  "Return 1 when needle occurs in text.";
+  1 - eq(str_find(text, needle), -1)
+}
+
+@test {name: "safetensors header reads valid, empty, and boundary headers", tags: ["safetensors", "read"]}
+def u:test_sth_read_valid() {
+  "Port the header fixture suite: sizes, lengths, and JSON of the accepted fixtures under the 4096 budget.";
+  opts = {max_header_bytes: 4096};
+  valid = u:sth_read_header(u:test_sth_fixture("valid-small.safetensors"), opts)?;
+  u:assert_eq([valid.file_size, valid.header_length, valid.data_bytes], [70, 58, 4], "valid tensor sizes")?;
+  u:assert_eq(tally(valid.header_bytes), 58, "header bytes match the declared length")?;
+  empty = u:sth_read_header(u:test_sth_fixture("valid-empty.safetensors"), opts)?;
+  u:assert_eq([empty.header_length, empty.data_bytes], [2, 0], "empty map header")?;
+  boundary = u:sth_read_header(u:test_sth_fixture("boundary-header.safetensors"), opts)?;
+  u:assert_eq(boundary.header_length, 4096, "maximum allowed header length")?;
+  parsed = u:sth_parse_header(boundary, opts)?;
+  u:assert_eq([parsed.tensor_count, list_len(parsed.names)], [0, 0], "padded boundary JSON is an empty object")?;
+  u:assert_eq(u:sth_check_layout(parsed), ok(1), "empty header with no data has a valid layout")
+}
+
+@test {name: "safetensors header rejects short, truncated, oversized, and overflowing files", tags: ["safetensors", "read"]}
+def u:test_sth_read_rejections() {
+  "Port the header fixture rejections, asserting the contract error kinds.";
+  opts = {max_header_bytes: 4096};
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("empty.safetensors"), opts)), "sth-prefix", "empty file")?;
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("truncated-prefix.safetensors"), opts)), "sth-prefix", "four prefix bytes")?;
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("truncated-header.safetensors"), opts)), "sth-truncated", "header shorter than declared")?;
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("oversized-header.safetensors"), opts)), "sth-length", "4097 against 4096")?;
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("overflow-length.safetensors"), opts)), "sth-length", "u64 maximum")?;
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("overflow-length.safetensors"), {})), "sth-length", "u64 maximum under the default budget")?;
+  accepted = u:sth_read_header(u:test_sth_fixture("oversized-header.safetensors"), {max_header_bytes: 8192});
+  u:assert_eq(u:test_sth_kind(accepted), "sth-truncated", "a larger budget passes the length check and then finds the missing header")
+}
+
+@test {name: "safetensors length decode is exact at the budget and 2^53 boundaries", tags: ["safetensors", "decode"]}
+def u:test_sth_decode_length() {
+  "Verify the in-memory prefix decoder on boundary, one-over, precision-hazard, and malformed prefixes.";
+  u:assert_eq(u:sth_decode_length([0, 16, 0, 0, 0, 0, 0, 0], 4096), ok(4096), "little-endian boundary decode")?;
+  u:assert_eq(u:test_sth_kind(u:sth_decode_length([1, 16, 0, 0, 0, 0, 0, 0], 4096)), "sth-length", "one byte over the budget")?;
+  u:assert_eq(u:test_sth_kind(u:sth_decode_length([0, 0, 0, 0, 0, 0, 32, 0], 9007199254740991)), "sth-length", "2^53 rejected under the maximal budget")?;
+  u:assert_eq(u:sth_decode_length([255, 255, 255, 255, 255, 255, 31, 0], 9007199254740991), ok(9007199254740991), "2^53-1 is the largest exact value")?;
+  u:assert_eq(u:test_sth_kind(u:sth_decode_length([0, 16, 0, 0, 0, 0, 0], 4096)), "sth-prefix", "seven bytes")?;
+  u:assert_eq(u:test_sth_kind(u:sth_decode_length([256, 0, 0, 0, 0, 0, 0, 0], 4096)), "sth-length", "non-byte value")?;
+  u:assert_eq(u:test_sth_kind(u:sth_decode_length([0, 0, 0, 0, 0, 0, 0, 0], 1)), "sth-length", "budget below two")?;
+  u:assert_eq(u:sth_decode_length([2, 0, 0, 0, 0, 0, 0, 0], 2), ok(2), "smallest valid header")
+}
+
+@test {name: "safetensors discovery is sorted and validated on the catalog fixture", tags: ["safetensors", "discover"]}
+def u:test_sth_discovery() {
+  "Verify names, totals, table rows, metadata, and the tensor accessor on valid-catalog.";
+  header = u:sth_inspect(u:test_sth_fixture("valid-catalog.safetensors"), {max_header_bytes: 4096})?;
+  u:assert_eq(header.names, ["tensor_a", "tensor_b", "tensor_c"], "sorted discovery without __metadata__")?;
+  u:assert_eq([header.tensor_count, header.parameter_count, header.tensor_bytes, header.data_bytes, header.metadata_present], [3, 4, 6, 6, 1], "catalog aggregates")?;
+  u:assert_eq(header.table, reshape([0, 2, 2, 1, 2, 6, 2, 2, 6, 6, 0, 4], [3, 4]), "name-sorted rows")?;
+  u:assert_eq(header.metadata, {format: "test"}, "metadata record")?;
+  tensor = u:sth_tensor(header, "tensor_b")?;
+  u:assert_eq([tensor.start, tensor.end, tensor.parameters, tensor.width], [2, 6, 2, 2], "tensor accessor row")?;
+  u:assert_eq([tensor.dtype, tensor.name], ["F16", "tensor_b"], "tensor accessor strings")?;
+  u:assert_eq(u:test_sth_kind(u:sth_tensor(header, "missing")), "sth-missing", "unknown name")?;
+  u:assert_eq(u:test_sth_kind(u:sth_tensor(header, "__metadata__")), "sth-missing", "metadata is not a tensor")?;
+  decode = u:sth_inspect(u:test_sth_fixture("valid-decode.safetensors"), {})?;
+  u:assert_eq(decode.names, ["i16_values", "i8_values", "u16_values", "u8_values"], "decode fixture names")?;
+  u:assert_eq(unwrap(u:sth_tensor(decode, "i16_values")).width, 2, "sixteen-bit width")?;
+  small = u:sth_inspect(u:test_sth_fixture("valid-small.safetensors"), {})?;
+  u:assert_eq([small.tensor_count, small.metadata_present, list_len(record_keys(small.metadata))], [1, 0, 0], "no metadata means an empty record")
+}
+
+@test {name: "safetensors catalog rejections carry the contract kinds", tags: ["safetensors", "validate"]}
+def u:test_sth_rejections() {
+  "Port the catalog rejection suite with one asserted kind per fixture.";
+  opts = {max_header_bytes: 4096};
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("duplicate-name.safetensors"), opts)), "sth-json", "duplicate key")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("malformed-json.safetensors"), opts)), "sth-json", "malformed JSON")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("unsupported-dtype.safetensors"), opts)), "sth-tensor", "Q4 dtype")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("invalid-shape.safetensors"), opts)), "sth-tensor", "negative dimension")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("overlapping-offsets.safetensors"), opts)), "sth-layout", "overlap")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("hole-offsets.safetensors"), opts)), "sth-layout", "hole")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("out-of-bounds.safetensors"), opts)), "sth-tensor", "range past the buffer")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("size-mismatch.safetensors"), opts)), "sth-tensor", "shape and dtype disagree")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("invalid-metadata.safetensors"), opts)), "sth-metadata", "non-string metadata")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("missing-shape.safetensors"), opts)), "sth-tensor", "missing shape")?;
+  failure = err_message(u:sth_inspect(u:test_sth_fixture("unsupported-dtype.safetensors"), opts));
+  u:assert_eq([failure.name, failure.path], ["tensor_a", u:test_sth_fixture("unsupported-dtype.safetensors")], "tensor errors carry name and path")?;
+  u:assert_true(u:test_sth_has(failure.cause, "Q4"), "cause names the dtype")
+}
+
+@test {name: "safetensors budgets fail closed", tags: ["safetensors", "budgets"]}
+def u:test_sth_budgets() {
+  "Verify header, element, and parameter budgets reject with the documented kinds.";
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("valid-small.safetensors"), {max_parameters: 3})), "sth-tensor", "four parameters over a budget of three")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("valid-catalog.safetensors"), {max_elements: 1})), "sth-json", "element budget")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("valid-small.safetensors"), {max_depth: 1})), "sth-json", "depth budget")?;
+  u:assert_eq(u:test_sth_kind(u:sth_inspect(u:test_sth_fixture("valid-small.safetensors"), {max_header_bytes: 57})), "sth-length", "header one byte over budget")?;
+  u:assert_eq(unwrap(u:sth_inspect(u:test_sth_fixture("valid-small.safetensors"), {max_header_bytes: 58})).header_length, 58, "header exactly at budget")?;
+  u:assert_eq(u:test_sth_kind(u:sth_shape_product([9007199254740991, 2], 9007199254740991)), "sth-tensor", "product rejected before overflow")?;
+  u:assert_eq(u:sth_shape_product([0, 9007199254740991, 9007199254740991], 4), ok(0), "a zero dimension short-circuits the product")?;
+  u:assert_eq(u:sth_shape_product([], 4), ok(1), "an empty shape is one scalar")
+}
+
+@test {name: "safetensors host refusals and in-memory records", tags: ["safetensors", "capability"]}
+def u:test_sth_host() {
+  "Verify missing paths and sandbox escapes return sth-read, and that parse_header accepts a caller-built raw record.";
+  u:assert_eq(u:test_sth_kind(u:sth_read_header(u:test_sth_fixture("missing.safetensors"), {})), "sth-read", "missing file")?;
+  escape = u:sth_inspect("../outside.safetensors", {});
+  u:assert_eq(u:test_sth_kind(escape), "sth-read", "sandbox escape")?;
+  u:assert_true(u:test_sth_has(err_message(escape).cause, "sandbox"), "cause names the sandbox")?;
+  header_text = "{\"w\":{\"dtype\":\"U8\",\"shape\":[2],\"data_offsets\":[0,2]}}";
+  raw = {file_size: 8 + str_len(header_text) + 2, header_length: str_len(header_text), header_bytes: tokenize_bytes(header_text), data_bytes: 2};
+  parsed = u:sth_parse_header(raw, {})?;
+  u:assert_eq(parsed.tensor_count, 1, "in-memory record parses")?;
+  u:assert_eq(parsed.path, "", "in-memory record has no path")?;
+  u:assert_eq(u:sth_check_layout(parsed), ok(1), "in-memory layout")?;
+  bad = u:sth_parse_header({file_size: 20, header_length: 12, header_bytes: tokenize_bytes("[1, 2, 3, 4]"), data_bytes: 0}, {});
+  u:assert_eq(u:test_sth_kind(bad), "sth-json", "array root is rejected")?;
+  no_tensors = u:sth_parse_header({file_size: 12, header_length: 2, header_bytes: tokenize_bytes("{}"), data_bytes: 2}, {})?;
+  u:assert_eq(u:test_sth_kind(u:sth_check_layout(no_tensors)), "sth-layout", "data without tensors")
+}
+
+u:run_registered_tests()
