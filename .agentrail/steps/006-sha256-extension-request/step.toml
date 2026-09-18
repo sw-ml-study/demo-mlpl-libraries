@@ -1,9 +1,10 @@
 number = 6
 slug = "sha256-extension-request"
-status = "in-progress"
+status = "completed"
 description = "Document missing SHA-256 support as a first-class feature request to ../demo-..."
 role = "validation"
 context_files = []
 created_at = "2026-09-18T10:13:23"
+completed_at = "2026-09-18T10:13:31"
 task_type = "contract"
-commits = []
+commits = ["ba3f97927626cd3ea43e46a08261d79b472a4f27"]
