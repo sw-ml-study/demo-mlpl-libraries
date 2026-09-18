@@ -1,0 +1,11 @@
+{
+  "task_type": "contract",
+  "state": {
+    "number": 3,
+    "step": "safetensors-contract"
+  },
+  "action": "Read the proven header and catalog modules, fixture generator, tests, and archived saga summaries; hashed sources and fixtures with shasum; mirrored the native3d migration contract structure; shell gate greps names, kinds, boundaries, and fixture rows.",
+  "result": "success",
+  "reward": 1,
+  "timestamp": "2026-09-17T17:20:29"
+}
